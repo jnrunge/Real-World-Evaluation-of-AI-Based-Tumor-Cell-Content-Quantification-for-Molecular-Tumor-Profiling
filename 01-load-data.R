@@ -5,13 +5,17 @@ library(readxl)
 output_files_exist <- all(file.exists(
   "discrepancies/2025-10-Data-Version/processed_data/data_df_pre_scaling.rds",
   "discrepancies/2025-10-Data-Version/processed_data/data_df.rds",
-  "discrepancies/2025-10-Data-Version/processed_data/variables.rds"
+  "discrepancies/2025-10-Data-Version/processed_data/data_df_renamed.rds",
+  "discrepancies/2025-10-Data-Version/processed_data/variables.rds",
+  "discrepancies/2025-10-Data-Version/processed_data/data_df_complete.rds"
 ))
 
 if (output_files_exist) {
   message("Output files already exist. Loading from saved RDS files...")
   data_df_pre_scaling <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df_pre_scaling.rds")
   data_df <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df.rds")
+  data_df_renamed <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df_renamed.rds")
+  data_df_complete <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df_complete.rds")
   variables <- readRDS("discrepancies/2025-10-Data-Version/processed_data/variables.rds")
   message("Data loaded successfully.")
 } else {
@@ -89,7 +93,7 @@ if (output_files_exist) {
   list_of_all_indepedent_variables <- list_of_all_indepedent_variables[1:(which(list_of_all_indepedent_variables == "Dependent variables") - 1)]
   list_of_all_indepedent_variables <- list_of_all_indepedent_variables[!is.na(list_of_all_indepedent_variables)]
   list_of_all_indepedent_variables <- list_of_all_indepedent_variables[!list_of_all_indepedent_variables %in% c("Independent Pre-/Analytical variables", "Independent Analytical Variables")]
-  list_of_all_indepedent_variables <- c(list_of_all_indepedent_variables, "TCC_Patho", "TCC_AI", "TCC_FMI", "AI_artefact_fraction_measure")
+  list_of_all_indepedent_variables <- c(list_of_all_indepedent_variables, "AI_artefact_fraction_measure")
   # Replace the old variable name with the fixed version
   list_of_all_indepedent_variables <- str_replace(
     list_of_all_indepedent_variables,
@@ -101,9 +105,30 @@ if (output_files_exist) {
     stop(paste0("The following variables are missing from the data: ", paste0(missing_vars, collapse = ", ")))
   }
 
-  variables <- tibble(variable = list_of_all_indepedent_variables, type = "explanatory")
-  variables <- bind_rows(variables, tibble(variable = c("TCC_Patho_minus_TCC_AI", "TCC_FMI_minus_TCC_AI", "TC_Patho_minus_TCC_FMI"), type = "response"))
+  var_desc <- (readxl::read_excel("data/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx", sheet = 2))
 
+  get_interaction_or_not <- function(var_name) {
+    if (var_name %in% c("Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed")) {
+      return(TRUE)
+    }
+    if (var_name %in% (var_desc[, 2] %>% pull())) {
+      return(!any(c(NA, "", "All") %in% (var_desc %>% filter(`Independent Preanalytical Variables` == var_name) %>% pull(`Sample type relevance`))))
+    } else {
+      return(FALSE)
+    }
+  }
+
+  
+
+
+  variables <- tibble(variable = list_of_all_indepedent_variables, type = "explanatory") %>%
+    rowwise() %>%
+    mutate(interaction = if_else(get_interaction_or_not(variable), "Sample type", "")) %>%
+    ungroup()
+  variables <- bind_rows(variables, tibble(variable = c("TCC_Patho_minus_TCC_AI", "TCC_FMI_minus_TCC_AI", "TCC_Patho_minus_TCC_FMI"), type = "response"))
+
+  data_df <- data_df %>% rename(TCC_Patho_minus_TCC_FMI = TC_Patho_minus_TCC_FMI)
+  data_df_complete <- data_df
   data_df <- data_df %>% select(all_of(variables$variable))
 
   numeric_like_columns <- names(data_df)[sapply(data_df, function(v) {
@@ -233,6 +258,52 @@ if (output_files_exist) {
     message("No unordered character/factor variables found")
   }
 
+
+# 0 out the sample type that makes no sense
+
+get_relevant_categories <- function(var_name) {
+  if (var_name %in% c("Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed")) {
+    return(c("Biopsy", "Resection"))
+  }
+  if (get_interaction_or_not(var_name)) {
+    return(strsplit(var_desc %>% filter(`Independent Preanalytical Variables` == var_name) %>% pull(`Sample type relevance`), "/")[[1]] %>% str_trim())
+  } else {
+    return(FALSE)
+  }
+}
+
+relevant_categories <- lapply(colnames(data_df), get_relevant_categories)
+names(relevant_categories) <- colnames(data_df)
+relevant_categories <- Filter(function(x) !identical(x, FALSE), relevant_categories)
+types_tbl <- tibble(variable = names(relevant_categories)) %>%
+  mutate(
+    typeof = map_chr(variable, ~ typeof(data_df[[.x]])),
+    class  = map_chr(variable, ~ paste(class(data_df[[.x]]), collapse = "/"))
+  )
+
+print(types_tbl, n = nrow(types_tbl))
+
+# For all variables with sample-type relevance, set out-of-scope rows:
+# - to first level if ordered/factor
+# - to 0 if numeric
+for (i in seq_len(nrow(types_tbl))) {
+  var <- types_tbl$variable[i]
+  cls <- types_tbl$class[i]
+  rel <- relevant_categories[[var]]
+  if (is.null(rel)) next
+
+  idx <- !(data_df$`Sample type` %in% rel)
+
+  if (cls == "ordered/factor") {
+    # assign lowest level
+    lvl1 <- levels(data_df[[var]])[1]
+    data_df[[var]][idx] <- lvl1
+  } else if (cls == "numeric") {
+    data_df[[var]][idx] <- 0
+  }
+}
+
+
   ## plots of distributions
 
   # Create a directory for distribution plots if it doesn't exist
@@ -290,12 +361,31 @@ if (output_files_exist) {
   scale_ <- function(x) {
     return(scale(x, center = TRUE, scale = TRUE) %>% as.numeric())
   }
-  data_df <- data_df %>%
-    mutate(across(all_of(numeric_vars), scale_))
 
+  response_vars <- variables %>%
+    filter(type == "response") %>%
+    pull(variable)
+
+
+  data_df <- data_df %>%
+    mutate(across(all_of(setdiff(numeric_vars, response_vars)), scale_))
+  
+
+###### REMOVE HIGHLY CORRELATED / REDUNDANT VARS
+highly_cor_vars <- c("AI_non_immune_cell_density_in_tumor_mm2","AI_immune_cell_density_in_tumor_mm2", "AI_%_lymphocytes_in_tumor","AI_%_of_fibroblasts_in_tumor", "AI_%_of_immune_cells_in_tumor", "AI_%_of_non_immune_cells_in_tumor")
+variables <- variables %>% filter(!variable %in% highly_cor_vars)
+data_df <- data_df %>% dplyr::select(-all_of(highly_cor_vars))
+
+######
+
+
+  data_df_renamed <- data_df
+  names(data_df_renamed) <- make.names(names(data_df_renamed), unique = TRUE)
+saveRDS(data_df_complete, file = "discrepancies/2025-10-Data-Version/processed_data/data_df_complete.rds")
   saveRDS(data_df, file = "discrepancies/2025-10-Data-Version/processed_data/data_df.rds")
 
-  variables <- variables %>% mutate(interaction = "")
+  saveRDS(data_df_renamed, file = "discrepancies/2025-10-Data-Version/processed_data/data_df_renamed.rds")
+
   saveRDS(variables, file = "discrepancies/2025-10-Data-Version/processed_data/variables.rds")
 
   message("Data processing complete and saved.")
