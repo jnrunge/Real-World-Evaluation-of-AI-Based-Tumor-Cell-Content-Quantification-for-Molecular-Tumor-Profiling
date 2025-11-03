@@ -1,5 +1,15 @@
-pretty_names <- read_csv("discrepancies/variable_pretty_names.csv")
+library(tidyverse)
 
+pretty_names <- read_csv("discrepancies/variable_pretty_names.csv")
+# Helper function to clean variable names
+clean_var_names <- function(x) {
+    x <- stringr::str_replace_all(x, "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...", "")
+    x <- stringr::str_replace_all(x, "Foundation.Model...TME.v1.0.1.alpha...Key.Result...", "")
+    x <- stringr::str_replace_all(x, "Artifact Detect v3.0.0 - Key Result - ", "")
+    x <- stringr::str_replace_all(x, "TumorDetect v1.2.0 - Supporting Result - ", "")
+    x <- stringr::str_replace_all(x, "Artifact Detect v3.0.0 - Supporting Result - ", "")
+    return(x)
+}
 
 get_pretty_name <- function(var) {
     # Handle interaction terms like "Var1:Var2"

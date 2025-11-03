@@ -1,4 +1,4 @@
-n_boot <- 1000
+
 
 library(foreach)
 library(doParallel)
@@ -50,17 +50,36 @@ if (ncol(corr_data) > 1) {
     message("Not enough predictor columns to compute correlations.")
 }
 
+
+steps_to_run <- 2000 # this is not n_boot number of bootstraps but rather how long each stepwise should run
+n_boot <- 5000
+
 # Iterate over all response_vars
 results_list <- foreach(response_var = response_vars) %do% {
-    boot_forward_list <- bootstrap_models(data_df, variables, n_boot, response_var, seed=1337, steps=1000)
-    saveRDS(boot_forward_list, file = paste0("discrepancies/2025-10-Data-Version/processed_data/bootstrapped_models_forward_", response_var, ".rds"))
+    rds_file <- paste0("discrepancies/2025-10-Data-Version/processed_data/bootstrapped_models_forward_", response_var, ".rds")
+    
+    if (file.exists(rds_file)) {
+        boot_forward_list <- readRDS(rds_file)
+        if (length(boot_forward_list) != n_boot) {
+            message("Number of bootstraps mismatch for ", response_var, ". Rerunning bootstrap.")
+            boot_forward_list <- bootstrap_models(data_df, variables, n_boot, response_var, seed = 1337, steps = steps_to_run)
+            saveRDS(boot_forward_list, file = rds_file)
+        } else {
+            message("Loading existing bootstrap results for ", response_var)
+        }
+    } else {
+        message("No existing bootstrap results for ", response_var, ". Running bootstrap.")
+        boot_forward_list <- bootstrap_models(data_df, variables, n_boot, response_var, seed = 1337, steps = steps_to_run)
+        saveRDS(boot_forward_list, file = rds_file)
+    }
     variable_freq_results <- plot_variable_frequency(boot_forward_list, response_var, data_df, n_boot)
-    combination_results <- plot_model_combinations(boot_forward_list, response_var, data_df, n_boot)
+    #combination_results <- plot_model_combinations(boot_forward_list, response_var, data_df, n_boot)
+    # not of interest at the moment
     
     list(
         boot_forward_list = boot_forward_list,
-        variable_freq = variable_freq_results,
-        combination = combination_results
+        variable_freq = variable_freq_results#,
+        #combination = combination_results
     )
 
 }

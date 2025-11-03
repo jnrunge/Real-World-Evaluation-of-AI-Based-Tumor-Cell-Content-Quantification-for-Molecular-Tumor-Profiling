@@ -28,7 +28,11 @@ get_pretty_name_v2 <- function(var) {
             suffix <- substring(var_clean, nchar(best) + 1)
             # strip leading separators from suffix
             suffix <- sub("^[ _:\\.]+", "", suffix)
-            pretty <- paste0(pretty_prefix, if (nzchar(suffix)) suffix else "")
+            pretty <- paste0(pretty_prefix, if (nzchar(suffix)) {
+                paste0(" (", suffix, ")")
+            } else {
+                ""
+            })
         } else {
             pretty <- var_clean
         }
@@ -164,7 +168,7 @@ pm <- plot_model_coefficients(
     get_pretty_name_v2,
     title = "TCC Discrepancy Pathologist vs AI"
 )
-ggsave(paste0(output_dir, "TCC_discrepancy_model.pdf"), pm, width = 8, height = 8, dpi = 300)
+ggsave(paste0(output_dir, "TCC_discrepancy_model.pdf"), pm, width = 8, height = 10, dpi = 300)
 
 # Example usage for FMI vs AI model
 pm_fmi_vs_ai <- plot_model_coefficients(
@@ -173,7 +177,7 @@ pm_fmi_vs_ai <- plot_model_coefficients(
     get_pretty_name_v2,
     title = "TCC Discrepancy FMI vs AI"
 )
-ggsave(paste0(output_dir, "TCC_discrepancy_model_fmi_vs_ai.pdf"), pm_fmi_vs_ai, width = 8, height = 8, dpi = 300)
+ggsave(paste0(output_dir, "TCC_discrepancy_model_fmi_vs_ai.pdf"), pm_fmi_vs_ai, width = 8, height = 9, dpi = 300)
 
 # Example usage for Path vs FMI model
 pm_path_vs_fmi <- plot_model_coefficients(
@@ -185,8 +189,14 @@ pm_path_vs_fmi <- plot_model_coefficients(
 
 ggsave(paste0(output_dir, "TCC_discrepancy_model_path_vs_fmi.pdf"), pm_path_vs_fmi, width = 8, height = 8, dpi = 300)
 
+
+
+
+
+
+
+
 # main effects
-# Function to plot main effect for a variable, with optional grouping by a second variable
 plot_main_effect <- function(
     model, model_data, var_base, get_pretty_name_v2 = identity, ylab = "Predicted Discrepancy",
     title_prefix = "Main Effect of", var_base_2 = NULL, var_base_2_values = NULL, palette = NULL,
@@ -607,51 +617,15 @@ plot_main_effect <- function(
         coord_cartesian(ylim = c(-100, 100))
     return(p)
 }
-# Example usage:
-# Single variable:
+
 me2 <- plot_main_effect(
     model = classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
     model_data = data_df_renamed,
     var_base = "AI_total_necrosis_area_.",
     get_pretty_name_v2, unscale_center = TRUE
-) + ggtitle("... vs AI") +
+) + ggtitle("TCC_Patho_minus_TCC_AI") +
     ylab("Predicted Discrepancy")
 
-# Function to add a value box in the bottom right corner of a ggplot
-add_importance_box <- function(plot, imp_val, label = "Importance") {
-    # Get importance value (in %)
-    imp_val <- round(imp_val * 100, 0)
-    # Get axis limits from plot
-    gb <- ggplot_build(plot)
-    xlim <- gb$layout$panel_params[[1]]$x.range
-    ylim <- gb$layout$panel_params[[1]]$y.range
-    # Box size as fraction of axis range
-    box_width <- diff(xlim) * 0.13
-    box_height <- diff(ylim) * 0.13
-    # Box position (bottom right)
-    xmin <- xlim[2] - box_width
-    xmax <- xlim[2]
-    ymin <- ylim[1]
-    ymax <- ylim[1] + box_height
-    # Add box and text
-    plot +
-        annotate("rect",
-            xmin = xmin, xmax = xmax, ymin = ymin + 5, ymax = ymax,
-            fill = "#f7e6ff", color = "black", alpha = 0.85
-        ) +
-        annotate("text",
-            x = (xmin + xmax) / 2, y = (ymin + 5 + ymax) / 2,
-            label = paste0(label, imp_val, "%"),
-            size = 5, fontface = "bold", color = "black", vjust = 0.5
-        )
-}
-
-# Example usage for me2:
-# me2 <- add_importance_box(
-#     me2,
-#     imp_val=classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$importance_summary$RelativeImportance[classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$importance_summary$orig_vars=="log_TumorDetect.v1.2.0...Supporting.Result...Area.of.Necrosis...mm.2"],
-#     label = ""
-# )
 
 # With grouping variable:
 me1 <- plot_main_effect(
@@ -662,228 +636,136 @@ me1 <- plot_main_effect(
     var_base_2_values = c(1000, 10000, 100000, 1000000),
     get_pretty_name_v2,
     unscale_center = TRUE
-) + theme(legend.position = "bottom") + ggtitle("... vs AI") +
+) + theme(legend.position = "bottom") + ggtitle("TCC_Patho_minus_TCC_AI") +
     ylab("Predicted Discrepancy")
 
-
-# Add importance box to me1
-# me1 <- add_importance_box(
-#     me1,
-#     imp_val=classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$importance_summary$RelativeImportance[classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$importance_summary$orig_vars=="Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue"],
-#     label = ""
-# )
-
-# vs fmi model effects
-
-
-# Single variable:
-me4 <- plot_main_effect(
-    model = path_vs_fmi$model,
-    model_data = all_model_variables_renamed %>% mutate(TumorDetect.v1.2.0...Supporting.Result...Area.of.Necrosis...mm.2 = data$`TumorDetect v1.2.0 - Supporting Result - Area of Necrosis - mm^2`),
-    var_base = "TumorDetect.v1.2.0...Supporting.Result...Area.of.Necrosis...mm.2",
-    get_pretty_name_v2
-) + ggtitle("... vs FMI") +
-    ylab("Predicted Discrepancy")
-
-# With grouping variable:
-me3 <- ggplot() +
-    theme_void()
-# outdated and not updated because not needed
-# plot_main_effect(
-#     model = path_vs_fmi$model,
-#     model_data = all_model_variables_renamed,
-#     var_base = "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue",
-#     var_base_2 = "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cancer.cells.in.tumor",
-#     var_base_2_values = c(1000, 10000, 100000, 1000000),
-#     var_base_2_correction = "log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.cancer...mm.2",
-#     var_base_2_correction_values = log(c(1000+1, 10000+1, 100000+1, 1000000+1))*0.5,
-#     get_pretty_name
-# ) + theme(legend.position = "bottom") + ggtitle("... vs FMI") +
-#     ylab("Predicted Discrepancy")
-
-
-# Arrange plots: pm on the left 50%, me1/me2 top right, me3/me4 bottom right
-library(patchwork)
-
-# Remove legends from individual plots
-me1_noleg <- me1 + theme(legend.position = "none") + geom_hline(yintercept = 0, linetype = "dashed", color = "grey60")
-me2_noleg <- me2 + theme(legend.position = "none") + geom_hline(yintercept = 0, linetype = "dashed", color = "grey60")
-me3_noleg <- me3 + theme(legend.position = "none") + geom_hline(yintercept = 0, linetype = "dashed", color = "grey60")
-me4_noleg <- me4 + theme(legend.position = "none") + geom_hline(yintercept = 0, linetype = "dashed", color = "grey60")
-
-# Extract a legend from one of the grouped plots (me1 or me3)
-get_legend <- function(p) {
-    # Extract only the legend grob from a ggplot object
-    g <- ggplotGrob(p + theme(legend.position = "bottom"))
-    legend_index <- which(sapply(g$grobs, function(x) x$name) == "guide-box")
-    if (length(legend_index) == 0) stop("No legend found in plot")
-    patchwork::wrap_elements(g$grobs[[legend_index]])
-}
-legend_me1 <- get_legend(me1)
-
-legend_pm <- get_legend(pm)
-
-pm_noleg <- pm + theme(legend.position = "none")
-
-# Compose the main plot without legends
-
-left_hand <- (pm_noleg / legend_pm + plot_layout(heights = c(0.9, 0.1)))
-right_hand <- ((me1_noleg + me2_noleg) / (me3_noleg + me4_noleg) / legend_me1 + plot_layout(heights = c(0.45, 0.45, 0.1)))
-main_plot <- (left_hand | right_hand) + plot_layout(widths = c(0.4, 0.6))
-main_plot
-
-
-
-
-
-
-#### other (?) code
-
-## plot each main effect in a grid
-
-me1 <- plot_main_effect(
-    model = classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
-    model_data = all_model_variables_renamed,
-    var_base = "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue",
-    var_base_2 = "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cancer.cells.in.tumor",
-    var_base_2_values = c(1000, 10000, 100000, 1000000),
-    get_pretty_name_v2,
-    unscale_center = TRUE
-) + theme(legend.position = "bottom") + ggtitle("... vs AI") +
-    ylab("Predicted Discrepancy")
-
-# Get coefficient names, exclude intercept
-coef_names <- names(classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model$coefficients)[-1]
-
-# Remove "log_" or "sq_" prefixes and get unique base variables
-clean_names <- str_replace(coef_names, "^(log_|sq_)", "")
-clean_names <- str_replace(clean_names, "\\.(L|C|Q)$", "")
-unique_clean_names <- unique(clean_names)
-
-# Exclude specific variables
-exclude_vars <- c(
-    "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue",
-    "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cancer.cells.in.tumor"
-)
-final_vars <- setdiff(unique_clean_names, exclude_vars)
-
-# Generate plots for each final variable
-main_effect_plots <- lapply(final_vars, function(var) {
-    plot_main_effect(
-        model = classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
-        model_data = all_model_variables_renamed,
-        var_base = var,
-        get_pretty_name_v2,
-        unscale_center = TRUE,
-        y_limits = c(-25, 25)
-    ) + ggtitle(NULL) +
-        ylab(NULL)
-})
-
-# Optionally, name the list elements for reference
-names(main_effect_plots) <- final_vars
-
-# Save each main effect plot as a PNG file
-for (i in seq_along(main_effect_plots)) {
-    var_name <- names(main_effect_plots)[i]
-    file_name <- paste0("test_", var_name, ".png")
-    ggsave(filename = file_name, plot = main_effect_plots[[i]], width = 8, height = 6, dpi = 300)
+# Helper function to get sensible grouping values for a variable
+get_grouping_values <- function(var_name, data, n_groups = 4) {
+    var_data <- data[[var_name]]
+    if (is.factor(var_data)) {
+        # For factors, return all levels (or a subset if too many)
+        levs <- levels(var_data)
+        if (length(levs) <= n_groups) return(levs)
+        # Sample evenly across levels
+        idx <- round(seq(1, length(levs), length.out = n_groups))
+        return(levs[idx])
+    } else {
+        # For numeric, use quantiles excluding extremes
+        quantiles <- quantile(var_data, probs = seq(0.1, 0.9, length.out = n_groups), na.rm = TRUE)
+        # Round to sensible values
+        range_val <- max(quantiles) - min(quantiles)
+        if (range_val > 1000) {
+            quantiles <- round(quantiles, -2) # Round to nearest 100
+        } else if (range_val > 100) {
+            quantiles <- round(quantiles, -1) # Round to nearest 10
+        } else {
+            quantiles <- round(quantiles, 1)
+        }
+        return(unique(quantiles))
+    }
 }
 
-me1 <- plot_main_effect(
-    model = classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
-    model_data = all_model_variables_renamed,
-    var_base = "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue",
-    var_base_2 = "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cancer.cells.in.tumor",
-    var_base_2_values = c(1000, 10000, 100000, 1000000),
-    get_pretty_name_v2,
-    unscale_center = TRUE
-) + theme(legend.position = "bottom") + ggtitle(NULL) +
-    ylab(NULL) +
-    scale_y_continuous(breaks = seq(-100, 100, 20))
-
-ggsave("test.png", me1, width = 8, height = 6, dpi = 300)
-
-# Combine me1 on top and the four main_effect_plots in a 2x2 grid underneath
-top_plot <- me1
-bottom_plots <- wrap_plots(main_effect_plots, ncol = 2)
-combined_main_effects <- top_plot / bottom_plots + plot_annotation(title = "Predicted discrepancy, Path vs AI", theme = theme(plot.title = element_text(size = 18)))
-
-# Save the combined plot
-ggsave("combined_main_effects.pdf", combined_main_effects, width = 8, height = 7, dpi = 300)
-
-
-## fmi
-
-
-
-coef_names <- names(classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$model$coefficients)[-1]
-# Remove "log_" or "sq_" prefixes and get unique base variables
-clean_names <- str_replace(coef_names, "^(log_|sq_)", "")
-clean_names <- str_replace(clean_names, "\\.(L|C|Q)$", "")
-clean_names <- str_replace(clean_names, "Poor/Satisfactory$", "")
-clean_names <- str_replace(clean_names, "High$", "")
-
-
-unique_clean_names <- unique(clean_names)
-# Exclude specific variables
-exclude_vars <- c(
-    "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue",
-    "Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tumor...mm.2"
-)
-final_vars <- setdiff(unique_clean_names, exclude_vars)
-
-# Generate plots for each final variable
-main_effect_plots_fmi <- lapply(seq_along(final_vars), function(i) {
-    var <- final_vars[i]
-    ylim <- if (i <= 2) c(-10, 50) else c(-25, 25)
-    plot_main_effect(
-        model = classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$model,
-        model_data = all_model_variables_renamed,
-        var_base = var,
-        get_pretty_name_v2,
-        unscale_center = TRUE,
-        y_limits = ylim
-    ) + ggtitle(NULL) +
-        ylab(NULL)
-})
-
-# Optionally, name the list elements for reference
-names(main_effect_plots_fmi) <- final_vars
-
-# Save each main effect plot as a PNG file
-for (i in seq_along(main_effect_plots_fmi)) {
-    var_name <- names(main_effect_plots_fmi)[i]
-    file_name <- paste0("fmi_test_", var_name, ".png")
-    ggsave(filename = file_name, plot = main_effect_plots_fmi[[i]], width = 8, height = 6, dpi = 300)
+# Loop through all models in classic_no_forced_interactions
+for (model_name in names(classic_no_forced_interactions)) {
+    cat("Processing model:", model_name, "\n")
+    
+    model_obj <- classic_no_forced_interactions[[model_name]]$model
+    model_data <- data_df_renamed
+    
+    # Get predictor names (excluding intercept)
+    predictor_names <- names(model_obj$coefficients)[-1]
+    
+    # Remove .L, .Q, .C suffixes and factor level suffixes to get base variable names
+    get_base_var <- function(pred_name) {
+        # Remove polynomial contrast suffixes
+        pred_clean <- sub("\\.(L|Q|C)$", "", pred_name)
+        # Remove common factor level suffixes
+        pred_clean <- sub("(High|Good|Low|Bad|Medium)$", "", pred_clean)
+        return(pred_clean)
+    }
+    
+    # Process each predictor
+    processed_vars <- character(0)
+    
+    for (pred in predictor_names) {
+        # Skip if already processed (handles .L, .Q, .C variants)
+        base_pred <- get_base_var(pred)
+        if (base_pred %in% processed_vars) next
+        
+        # Check if interaction term
+        if (grepl(":", pred, fixed = TRUE)) {
+            # Interaction term
+            parts <- strsplit(base_pred, ":", fixed = TRUE)[[1]]
+            if (length(parts) != 2) next
+            
+            var_base <- parts[1]
+            var_base_2 <- parts[2]
+            
+            # Get appropriate grouping values for var_base_2
+            var_base_2_values <- get_grouping_values(var_base_2, model_data, n_groups = 4)
+            
+            tryCatch({
+                p <- plot_main_effect(
+                    model = model_obj,
+                    model_data = model_data,
+                    var_base = var_base,
+                    var_base_2 = var_base_2,
+                    var_base_2_values = var_base_2_values,
+                    get_pretty_name_v2 = get_pretty_name_v2,
+                    unscale_center = TRUE
+                ) + 
+                    theme(legend.position = "bottom") + 
+                    ggtitle(model_name) +
+                    ylab("Predicted Discrepancy")
+                
+                # Create safe filename
+                safe_filename <- paste0(
+                    output_dir,
+                    model_name, "_interaction_",
+                    make.names(var_base), "_by_",
+                    make.names(var_base_2), ".pdf"
+                )
+                
+                ggsave(safe_filename, p, width = 10, height = 8, dpi = 300)
+                cat("  Saved interaction plot:", safe_filename, "\n")
+            }, error = function(e) {
+                cat("  Error plotting interaction", var_base, ":", var_base_2, "-", e$message, "\n")
+            })
+            
+            processed_vars <- c(processed_vars, base_pred)
+            
+        } else {
+            # Main effect term
+            var_base <- base_pred
+            
+            tryCatch({
+                p <- plot_main_effect(
+                    model = model_obj,
+                    model_data = model_data,
+                    var_base = var_base,
+                    get_pretty_name_v2 = get_pretty_name_v2,
+                    unscale_center = TRUE
+                ) + 
+                    ggtitle(model_name) +
+                    ylab("Predicted Discrepancy")
+                
+                # Create safe filename
+                safe_filename <- paste0(
+                    output_dir,
+                    model_name, "_main_effect_",
+                    make.names(var_base), ".pdf"
+                )
+                
+                ggsave(safe_filename, p, width = 8, height = 8, dpi = 300)
+                cat("  Saved main effect plot:", safe_filename, "\n")
+            }, error = function(e) {
+                cat("  Error plotting main effect", var_base, "-", e$message, "\n")
+            })
+            
+            processed_vars <- c(processed_vars, var_base)
+        }
+    }
 }
 
-me3 <- plot_main_effect(
-    model = classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$model,
-    model_data = all_model_variables_renamed,
-    var_base = "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue",
-    var_base_2 = "Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tumor...mm.2",
-    var_base_2_values = c(1, 10, 100),
-    get_pretty_name_v2,
-    unscale_center = TRUE
-) + theme(legend.position = "bottom") + ggtitle(NULL) +
-    ylab(NULL) +
-    scale_y_continuous(breaks = seq(-100, 100, 20))
+cat("All plots generated successfully!\n")
 
-ggsave("test_fmi.png", me3, width = 8, height = 6, dpi = 300)
-
-# Modify the first two plots in main_effect_plots_fmi to add ylim(c(-10, 50))
-if (length(main_effect_plots_fmi) >= 1) {
-    main_effect_plots_fmi[[1]] <- main_effect_plots_fmi[[1]]
-}
-if (length(main_effect_plots_fmi) >= 2) {
-    main_effect_plots_fmi[[2]] <- main_effect_plots_fmi[[2]]
-}
-
-# Combine me3 on top and the four main_effect_plots_fmi in a 2x2 grid underneath
-top_plot_fmi <- me3
-bottom_plots_fmi <- wrap_plots(main_effect_plots_fmi, ncol = 2)
-combined_main_effects_fmi <- top_plot_fmi / bottom_plots_fmi + plot_annotation(title = "Predicted discrepancy, Path vs FMI", theme = theme(plot.title = element_text(size = 18)))
-
-# Save the combined plot
-ggsave("combined_main_effects_fmi.pdf", combined_main_effects_fmi, width = 8, height = 9, dpi = 300)

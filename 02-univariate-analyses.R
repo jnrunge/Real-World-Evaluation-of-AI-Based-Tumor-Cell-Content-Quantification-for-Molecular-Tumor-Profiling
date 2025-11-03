@@ -143,34 +143,12 @@ for (response_var in response_vars) {
         ) +
         facet_wrap(~variable, scales = "free", ncol = 2)
 
-    plot_categorical_ss <- univ_results %>%
-        filter(type == "categorical", variable == "Specimen SiteGrouped_01") %>%
-        mutate(variable = factor(variable)) %>%
-        ggplot(aes(x = stat, y = variable, fill = p.value < 0.05)) +
-        geom_tile(color = "white", height = 0.8, width = 0.8) +
-        scale_fill_manual(values = c("grey90", "firebrick")) +
-        labs(
-            x = "Group comparison", y = NULL, fill = "p < 0.05",
-            title = paste("Outcome:", response_var)
-        ) +
-        theme_bw(12) +
-        # scale_x_discrete(labels = NULL) +
-        scale_y_discrete(labels = NULL) +
-        theme(
-            axis.text.x = element_text(angle = 45, hjust = 1),
-            axis.ticks = element_blank(),
-            # axis.ticks.x = element_blank(),
-            axis.ticks.y = element_blank(),
-            panel.grid.major = element_blank(),
-            panel.grid.minor = element_blank()
-        ) +
-        facet_wrap(~variable, scales = "free", ncol = 1)
+    
 
     dir.create("discrepancies/2025-10-Data-Version/univar", recursive = TRUE, showWarnings = FALSE)
 
     # Show plots with response variable in filename
     plot_numeric %>% ggsave(filename = paste0("discrepancies/2025-10-Data-Version/univar/univariate_numeric_", response_var, ".pdf"), width = 10, height = 4, dpi = 300)
     plot_categorical_noss %>% ggsave(filename = paste0("discrepancies/2025-10-Data-Version/univar/univariate_categorical_", response_var, ".pdf"), width = 10, height = 30, dpi = 300)
-    plot_categorical_ss %>% ggsave(filename = paste0("discrepancies/2025-10-Data-Version/univar/univariate_categorical_specimen_site_", response_var, ".pdf"), width = 20, height = 4, dpi = 300)
     write_tsv(univ_results, file = paste0("discrepancies/2025-10-Data-Version/univar/univariate_results_", response_var, ".tsv"))
 }
