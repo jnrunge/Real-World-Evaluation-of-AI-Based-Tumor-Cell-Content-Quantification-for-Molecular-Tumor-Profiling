@@ -6,11 +6,13 @@ library(dplyr)
 library(uwot)
 
 
+response_var <- "TCC_Patho_minus_TCC_AI"
+
 ## 1. pick 5 “far-apart” samples by k-means on the predictors
 set.seed(123)
 # 1. Cluster on the explanatory variables
 # Only include variables present in the model formula
-model_vars <- classic_no_forced_interactions$model %>%
+model_vars <- classic_no_forced_interactions[[response_var]]$model %>%
     formula() %>%
     as.character() %>%
     .[3] %>%
@@ -50,11 +52,11 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
     theme_minimal()
 
 kNNdist <- kNNdistplot(umap_df, k = 1:10)
-abline(h = 0.5, lty = 2)
+abline(h = 0.6, lty = 2)
 
 minpts <- 2 * ncol(umap_df)
 
-db <- dbscan(umap_df, eps = 0.5, minPts = minpts)
+db <- dbscan(umap_df, eps = 0.6, minPts = minpts)
 print(db)
 
 umap_df$cluster <- factor(db$cluster)
@@ -92,7 +94,7 @@ cluster_counts <- tibble(cluster = db$cluster) %>%
     mutate(pct = n / sum(n) * 100)
 
 preds_all <- predict(
-    classic_no_forced_interactions$model,
+    classic_no_forced_interactions[[response_var]]$model,
     newdata = data_df_renamed
 )
 
@@ -164,6 +166,7 @@ ggsave("discrepancies/2025-10-Data-Version/clustering/boxplot_TCC_discrepancy_by
 
 
 
+
 df_all %>%
     group_by(cluster) %>%
     summarise(
@@ -173,12 +176,12 @@ df_all %>%
         pct_high = n_high / total * 100,
         pct_low = n_low / total * 100
     ) %>%
-    print()
+    print() %>% write_excel_csv2("discrepancies/2025-10-Data-Version/clustering/cluster_extreme_discrepancy_counts.csv")
 
 ## 4. decompose each prediction into covariate contributions
 # get each term’s contribution via predict(type="terms")
 contr_mat <- predict(
-    classic_no_forced_interactions$model,
+    classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
     newdata = samples,
     type = "terms"
 )
@@ -215,7 +218,7 @@ names(df_all_contrib) <- make.names(names(df_all_contrib), unique = TRUE)
 
 # Calculate contributions for all members of each cluster
 contr_mat_all <- predict(
-    classic_no_forced_interactions$model,
+    classic_no_forced_interactions[[response_var]]$model,
     newdata = df_all_contrib, # Use all data instead of just samples
     type = "terms"
 )
@@ -284,7 +287,7 @@ ggsave("discrepancies/2025-10-Data-Version/clustering/per_term_contributions_all
 
 
 
-data_df_renamed_only_model_vars <- classic_no_forced_interactions$model %>%
+data_df_renamed_only_model_vars <- classic_no_forced_interactions[[response_var]]$model %>%
     formula() %>%
     as.character()
 
@@ -455,8 +458,8 @@ if (has_tc_path) {
     tc_path_summary <- df_all %>%
         group_by(cluster) %>%
         summarise(
-            mean_val = mean(!!response_var, na.rm = TRUE),
-            sd_val = sd(!!response_var, na.rm = TRUE),
+            mean_val = mean(.data[[response_var]], na.rm = TRUE),
+            sd_val = sd(.data[[response_var]], na.rm = TRUE),
             n = n(),
             .groups = "drop"
         ) %>%
@@ -518,7 +521,7 @@ heatmap_df <- bind_rows(num_plot_df, cat_plot_df, tc_path_plot_df)
 # Order variables: numeric first, then categorical, then TC_Path_minus_TC_AI, or keep original order
 heatmap_df$variable <- factor(
     heatmap_df$variable,
-    levels = unique(c(num_summary$variable, cat_summary$variable, "TC_Path_minus_TC_AI"))
+    levels = unique(c(num_summary$variable, cat_summary$variable, response_var))
 )
 
 # Plot: use fill for display, facet for value_type, and alpha for variation
@@ -626,4 +629,4 @@ ggplot(heatmap_df, aes(x = factor(cluster), y = variable)) +
     theme(legend.position = "bottom") +
     ylab(NULL)
 
-ggsave("cluster_variable_summary_heatmap.pdf", width = 6 * 3, height = 6)
+ggsave("discrepancies/2025-10-Data-Version/clustering/cluster_variable_heatmap.png", width = 6 * 3, height = 6)
