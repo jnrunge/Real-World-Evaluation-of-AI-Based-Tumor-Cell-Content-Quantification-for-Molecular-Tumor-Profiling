@@ -1,4 +1,4 @@
-source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
+source(file.path(project_dir, "00-universal-dependencies.R"))
 
 # pretty & simple tobi-inspired plots
 # Pairwise scatterplots and histograms for TC_AI, TC_Path, TC_FMI
@@ -229,12 +229,12 @@ legend_sample_type <- get_legend(point_panel)
 # Combine: legend on the left, combined_p_matrix on the right
 final_combined <- (legend_sample_type | combined_p_matrix) + plot_layout(widths = c(0.08, 0.92))
 
-dir.create("discrepancies/2025-10-Data-Version/tobi_plots", showWarnings = FALSE)
+dir.create(file.path(project_dir, "output/tobi_plots"), showWarnings = FALSE)
 
 # Save the combined plot (optional)
-ggsave("discrepancies/2025-10-Data-Version/tobi_plots/TCC_correlations_by_tissue.PDF", final_combined, width = 18, height = 10, dpi = 300)
+ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations_by_tissue.PDF"), final_combined, width = 18, height = 10, dpi = 300)
 
-ggsave("discrepancies/2025-10-Data-Version/tobi_plots/TCC_correlations.PDF", p_matrix, width = 10, height = 10, dpi = 300)
+ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations.PDF"), p_matrix, width = 10, height = 10, dpi = 300)
 
 sampletype_discrepancy_hist <- ggplot(data_df_complete, aes(x = TCC_Patho_minus_TCC_AI, fill = `Sample type`)) +
     geom_histogram(position = "dodge", bins = 30, color = "#013d6b", alpha = 0.85) +
@@ -262,7 +262,7 @@ sampletype_discrepancy_hist <- ggplot(data_df_complete, aes(x = TCC_Patho_minus_
     scale_x_continuous(limits = c(-80, 80), breaks = round(seq(-80, 80, length.out = 5)), minor_breaks = round(seq(-80, 80, by = 10))) +
     scale_y_continuous(limits = c(0, 30), breaks = seq(0, 30, by = 5), minor_breaks = NULL)
 
-ggsave("discrepancies/2025-10-Data-Version/tobi_plots/TC_Path_minus_TC_AI_by_sample_type.PDF", sampletype_discrepancy_hist, width = 4, height = 10, dpi = 300)
+ggsave(file.path(project_dir, "output/tobi_plots/TC_Path_minus_TC_AI_by_sample_type.PDF"), sampletype_discrepancy_hist, width = 4, height = 10, dpi = 300)
 
 # Combine final_combined and sampletype_discrepancy_hist into a new plot with sampletype_discrepancy_hist on the right
 
@@ -276,4 +276,4 @@ combined_with_hist <- (combined_p_matrix | sampletype_discrepancy_hist_noleg) +
     plot_layout(widths = c(0.85, 0.15))
 
 # Show or save the combined plot
-ggsave("discrepancies/2025-10-Data-Version/tobi_plots/TCC_correlations_with_sampletype_hist.PDF", combined_with_hist, width = 18, height = 11, dpi = 300)
+ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations_with_sampletype_hist.PDF"), combined_with_hist, width = 18, height = 11, dpi = 300)

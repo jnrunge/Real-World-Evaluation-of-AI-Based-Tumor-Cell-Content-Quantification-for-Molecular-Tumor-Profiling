@@ -1,32 +1,31 @@
 
 # Check if output files exist
 output_files_exist <- all(file.exists(
-  "discrepancies/2025-10-Data-Version/processed_data/data_df_pre_scaling.rds",
-  "discrepancies/2025-10-Data-Version/processed_data/data_df.rds",
-  "discrepancies/2025-10-Data-Version/processed_data/data_df_renamed.rds",
-  "discrepancies/2025-10-Data-Version/processed_data/variables.rds",
-  "discrepancies/2025-10-Data-Version/processed_data/data_df_complete.rds"
+  file.path(project_dir, "output/processed_data/data_df_pre_scaling.rds"),
+  file.path(project_dir, "output/processed_data/data_df.rds"),
+  file.path(project_dir, "output/processed_data/data_df_renamed.rds"),
+  file.path(project_dir, "output/processed_data/variables.rds"),
+  file.path(project_dir, "output/processed_data/data_df_complete.rds")
 ))
 
 if (output_files_exist) {
   message("Output files already exist. Loading from saved RDS files...")
-  data_df_pre_scaling <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df_pre_scaling.rds")
-  data_df <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df.rds")
-  data_df_renamed <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df_renamed.rds")
-  data_df_complete <- readRDS("discrepancies/2025-10-Data-Version/processed_data/data_df_complete.rds")
-  variables <- readRDS("discrepancies/2025-10-Data-Version/processed_data/variables.rds")
+  data_df_pre_scaling <- readRDS(file.path(project_dir, "output/processed_data/data_df_pre_scaling.rds"))
+  data_df <- readRDS(file.path(project_dir, "output/processed_data/data_df.rds"))
+  data_df_renamed <- readRDS(file.path(project_dir, "output/processed_data/data_df_renamed.rds"))
+  data_df_complete <- readRDS(file.path(project_dir, "output/processed_data/data_df_complete.rds"))
+  variables <- readRDS(file.path(project_dir, "output/processed_data/variables.rds"))
   message("Data loaded successfully.")
 } else {
   message("Output files not found. Running full data processing pipeline...")
 
   ## The actual df
-  data_df <- read_excel("data/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx", sheet = 1)
+  data_df <- read_excel(file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), sheet = 1)
   data_df$Metastatic <- data_df$Cancer != data_df$SpecimenSite
-  old_data <- read_csv2("data/merged_data.csv")
+  old_data <- read_csv2(file.path(project_dir, "input/raw/merged_data.csv"))
 
-  # un-round the TCC_AI variables
-  data_PathAI <- read_csv("data/20240710_500_samples_with_results.csv")
-  data_df <- left_join(data_df, data_PathAI %>% select(Pseudonym = pseudonym...1, TCC_AI = Foundation.Model...TME.v1.0.1.alpha...Key.Result...Percent.tumor.nuclei....))
+  # fix naming (use non-rounded)
+  data_df$TCC_AI <- data_df$TC_AI
   data_df$TCC_Patho_minus_TCC_AI <- data_df$TCC_Patho - data_df$TCC_AI
   data_df$TCC_FMI_minus_TCC_AI <- data_df$TCC_FMI - data_df$TCC_AI
 
@@ -86,7 +85,7 @@ if (output_files_exist) {
   # names(data_df)[!(names(data_df) %in% common_cols$data_df_col)]
 
   ## get the list of all desired independent variables
-  list_of_all_indepedent_variables <- read_excel("data/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx", sheet = 2) %>% select(2)
+  list_of_all_indepedent_variables <- read_excel(file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), sheet = 2) %>% select(2)
   list_of_all_indepedent_variables <- pull(list_of_all_indepedent_variables)
   list_of_all_indepedent_variables <- list_of_all_indepedent_variables[1:(which(list_of_all_indepedent_variables == "Dependent variables") - 1)]
   list_of_all_indepedent_variables <- list_of_all_indepedent_variables[!is.na(list_of_all_indepedent_variables)]
@@ -103,7 +102,7 @@ if (output_files_exist) {
     stop(paste0("The following variables are missing from the data: ", paste0(missing_vars, collapse = ", ")))
   }
 
-  var_desc <- (readxl::read_excel("data/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx", sheet = 2))
+  var_desc <- (readxl::read_excel(file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), sheet = 2))
 
   get_interaction_or_not <- function(var_name) {
     if (var_name %in% c("Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed")) {
@@ -201,7 +200,7 @@ if (output_files_exist) {
   outlier_rows <- unique(outliers$row)
 
   # 4. Plot each variable with outliers highlighted
-  output_dir <- "discrepancies/2025-10-Data-Version/outliers/"
+  output_dir <- file.path(project_dir, "output/outliers/")
   dir.create(output_dir, showWarnings = FALSE)
   for (var in unique(outliers$variable)) {
     df <- tibble(
@@ -305,7 +304,7 @@ for (i in seq_len(nrow(types_tbl))) {
   ## plots of distributions
 
   # Create a directory for distribution plots if it doesn't exist
-  output_dir <- "discrepancies/2025-10-Data-Version/distributions/"
+  output_dir <- file.path(project_dir, "output/distributions/")
   dir.create(output_dir, showWarnings = FALSE)
 
   # Plot distributions for each variable in data_df
@@ -353,8 +352,8 @@ for (i in seq_len(nrow(types_tbl))) {
   }
 
   data_df_pre_scaling <- data_df
-  dir.create("discrepancies/2025-10-Data-Version/processed_data/", showWarnings = FALSE)
-  saveRDS(data_df_pre_scaling, file = "discrepancies/2025-10-Data-Version/processed_data/data_df_pre_scaling.rds")
+  dir.create(file.path(project_dir, "output/processed_data/"), showWarnings = FALSE)
+  saveRDS(data_df_pre_scaling, file = file.path(project_dir, "output/processed_data/data_df_pre_scaling.rds"))
   # scaling numeric variables
   scale_ <- function(x) {
     return(scale(x, center = TRUE, scale = TRUE) %>% as.numeric())
@@ -379,12 +378,16 @@ for (i in seq_len(nrow(types_tbl))) {
 
   data_df_renamed <- data_df
   names(data_df_renamed) <- make.names(names(data_df_renamed), unique = TRUE)
-saveRDS(data_df_complete, file = "discrepancies/2025-10-Data-Version/processed_data/data_df_complete.rds")
-  saveRDS(data_df, file = "discrepancies/2025-10-Data-Version/processed_data/data_df.rds")
+  saveRDS(data_df_complete, file = file.path(project_dir, "output/processed_data/data_df_complete.rds"))
+  saveRDS(data_df, file = file.path(project_dir, "output/processed_data/data_df.rds"))
 
-  saveRDS(data_df_renamed, file = "discrepancies/2025-10-Data-Version/processed_data/data_df_renamed.rds")
+  saveRDS(data_df_renamed, file = file.path(project_dir, "output/processed_data/data_df_renamed.rds"))
 
-  saveRDS(variables, file = "discrepancies/2025-10-Data-Version/processed_data/variables.rds")
+  saveRDS(variables, file = file.path(project_dir, "output/processed_data/variables.rds"))
 
   message("Data processing complete and saved.")
 }
+
+response_vars <- variables %>%
+  filter(type == "response") %>%
+  pull(variable)

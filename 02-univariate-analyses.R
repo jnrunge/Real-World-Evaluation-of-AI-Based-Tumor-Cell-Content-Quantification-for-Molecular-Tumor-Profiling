@@ -1,6 +1,4 @@
-
-
-source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
+source(file.path(project_dir, "00-universal-dependencies.R"))
 # univariate test all variables
 
 
@@ -140,10 +138,10 @@ for (response_var in response_vars) {
 
     
 
-    dir.create("discrepancies/2025-10-Data-Version/univar", recursive = TRUE, showWarnings = FALSE)
+    dir.create(file.path(project_dir, "output/univar"), recursive = TRUE, showWarnings = FALSE)
 
     # Show plots with response variable in filename
-    plot_numeric %>% ggsave(filename = paste0("discrepancies/2025-10-Data-Version/univar/univariate_numeric_", response_var, ".pdf"), width = 10, height = 4, dpi = 300)
-    plot_categorical_noss %>% ggsave(filename = paste0("discrepancies/2025-10-Data-Version/univar/univariate_categorical_", response_var, ".pdf"), width = 10, height = 30, dpi = 300)
-    write_tsv(univ_results, file = paste0("discrepancies/2025-10-Data-Version/univar/univariate_results_", response_var, ".tsv"))
+    plot_numeric %>% ggsave(filename = file.path(project_dir, "output/univar", paste0("univariate_numeric_", response_var, ".pdf")), width = 10, height = 4, dpi = 300)
+    plot_categorical_noss %>% ggsave(filename = file.path(project_dir, "output/univar", paste0("univariate_categorical_", response_var, ".pdf")), width = 10, height = 30, dpi = 300)
+    write_tsv(univ_results, file = file.path(project_dir, "output/univar", paste0("univariate_results_", response_var, ".tsv")))
 }

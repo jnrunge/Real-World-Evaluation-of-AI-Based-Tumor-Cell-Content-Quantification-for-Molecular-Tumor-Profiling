@@ -1,10 +1,10 @@
 # ---- Plot each variable vs TC_Path_minus_TC_AI with p-value annotation ----
 
-source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
+source(file.path(project_dir, "00-universal-dependencies.R"))
 
 # Loop over all response variables
 for (response_var in response_vars) {
-    univ_results <- read_tsv(paste0("discrepancies/2025-10-Data-Version/univar/univariate_results_", response_var, ".tsv"))
+    univ_results <- read_tsv(file.path(project_dir, "output/univar", paste0("univariate_results_", response_var, ".tsv")))
     plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name) {
         if (!(get_pretty_name(var) %in% univ_results$variable)) {
             return(NULL) # Skip if variable not in univ_results
@@ -97,7 +97,7 @@ for (response_var in response_vars) {
     combined_vs_discrepancy_plot <- wrap_plots(all_vs_discrepancy_plots, ncol = ncol_grid)
 
     # Show or save
-    ggsave(paste0("discrepancies/2025-10-Data-Version/univar/all_vs_", response_var, ".pdf"), combined_vs_discrepancy_plot, width = 16, height = 40, dpi = 300)
+    ggsave(file.path(project_dir, "output/univar", paste0("all_vs_", response_var, ".pdf")), combined_vs_discrepancy_plot, width = 16, height = 40, dpi = 300)
 
 
 
@@ -133,7 +133,7 @@ for (response_var in response_vars) {
         combined_manual_discrepancy_plots <- wrap_plots(manual_discrepancy_plots_list, ncol = ncol_grid)
     }
 
-    ggsave(paste0("discrepancies/2025-10-Data-Version/univar/manual_discrepancy_plots_", response_var, ".pdf"), combined_manual_discrepancy_plots, width = 10, height = 18, dpi = 300)
+    ggsave(file.path(project_dir, "output/univar", paste0("manual_discrepancy_plots_", response_var, ".pdf")), combined_manual_discrepancy_plots, width = 10, height = 18, dpi = 300)
 
 
     ai_vars_to_show <- c(
@@ -162,7 +162,7 @@ for (response_var in response_vars) {
         combined_ai_vars_plots <- wrap_plots(ai_vars_plots_list, ncol = ncol_grid)
     }
 
-    ggsave(paste0("discrepancies/2025-10-Data-Version/univar/ai_vars_vs_", response_var, ".pdf"), combined_ai_vars_plots, width = 10, height = 9, dpi = 300)
+    ggsave(file.path(project_dir, "output/univar", paste0("ai_vars_vs_", response_var, ".pdf")), combined_ai_vars_plots, width = 10, height = 9, dpi = 300)
 
     # --- Only variables with at least one significant p-value ---
     sig_vars <- univ_results %>%
@@ -195,7 +195,7 @@ for (response_var in response_vars) {
 
     combined_sig_vs_discrepancy_plot_path <- wrap_plots(sig_vs_discrepancy_plots_path, ncol = ncol_grid)
 
-    ggsave(paste0("discrepancies/2025-10-Data-Version/univar/sig_vs_path_", response_var, ".pdf"), combined_sig_vs_discrepancy_plot_path, width = 16, height = 20, dpi = 300)
+    ggsave(file.path(project_dir, "output/univar", paste0("sig_vs_path_", response_var, ".pdf")), combined_sig_vs_discrepancy_plot_path, width = 16, height = 20, dpi = 300)
 
     # AI variables: pretty name starts with AI
     sig_vs_discrepancy_plots_ai <- lapply(
@@ -214,6 +214,6 @@ for (response_var in response_vars) {
 
     combined_sig_vs_discrepancy_plot_ai <- wrap_plots(sig_vs_discrepancy_plots_ai, ncol = ncol_grid)
 
-    ggsave(paste0("discrepancies/2025-10-Data-Version/univar/sig_vs_ai_", response_var, ".pdf"), combined_sig_vs_discrepancy_plot_ai, width = 16, height = 10, dpi = 300)
+    ggsave(file.path(project_dir, "output/univar", paste0("sig_vs_ai_", response_var, ".pdf")), combined_sig_vs_discrepancy_plot_ai, width = 16, height = 10, dpi = 300)
 
 } # End of loop over response_vars

@@ -1,7 +1,6 @@
+source(file.path(project_dir, "functions/manual-stepwise.R"))
+source(file.path(project_dir, "functions/bootstrapping_models.R"))
 
-
-source("discrepancies/manual-stepwise.R")
-source("discrepancies/2025-10-Data-Version/functions/bootstrapping_models.R")
 response_vars <- variables %>%
     filter(type == "response") %>%
     pull(variable)
@@ -53,7 +52,7 @@ n_boot <- 1000
 
 # Iterate over all response_vars
 results_list <- foreach(response_var = response_vars) %do% {
-    rds_file <- paste0("discrepancies/2025-10-Data-Version/processed_data/bootstrapped_models_forward_", response_var, ".rds")
+    rds_file <- file.path(project_dir, "output/processed_data", paste0("bootstrapped_models_forward_", response_var, ".rds"))
     
     if (file.exists(rds_file)) {
         boot_forward_list <- readRDS(rds_file)

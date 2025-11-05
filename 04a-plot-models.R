@@ -1,4 +1,4 @@
-output_dir <- "discrepancies/2025-10-Data-Version/model_plots/"
+output_dir <- file.path(project_dir, "output/model_plots/")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 get_pretty_name_v2 <- function(var) {

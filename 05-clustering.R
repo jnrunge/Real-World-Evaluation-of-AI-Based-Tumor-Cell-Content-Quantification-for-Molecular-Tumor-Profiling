@@ -1,4 +1,3 @@
-
 # ---- Helper Functions ----
 
 #' Prepare model variables matrix
@@ -781,7 +780,7 @@ run_clustering_analysis <- function(response_var,
                                    data_df, 
                                    data_df_renamed, 
                                    model_list,
-                                   output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+                                   output_base_dir = file.path(project_dir, "output/clustering"),
                                    eps = 0.6,
                                    minPts = NULL,
                                    n_neighbors = 15,
@@ -875,7 +874,7 @@ run_clustering_grid_search <- function(response_var,
                                       data_df,
                                       data_df_renamed,
                                       model_list,
-                                      output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+                                      output_base_dir = file.path(project_dir, "output/clustering"),
                                       eps_values = c(0.5, 0.6, 0.7),
                                       minPts_values = c(5, 10, 15),
                                       n_neighbors_values = c(10, 15, 20),
@@ -998,7 +997,7 @@ response_var <- "TCC_Patho_minus_TCC_AI"
 #     data_df = data_df,
 #     data_df_renamed = data_df_renamed,
 #     model_list = classic_no_forced_interactions,
-#     output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+#     output_base_dir = "discrepancies/2025-10-Data-Version/output/clustering",
 #     eps_values = c(0.2,0.3,0.4, 0.5, 0.6, 0.7, 0.8),
 #     minPts_values = nrow(data_df_renamed)*0.05,
 #     n_neighbors_values = c(5,10,15,20),
@@ -1013,7 +1012,7 @@ grid_results <- run_clustering_grid_search(
     data_df = data_df,
     data_df_renamed = data_df_renamed,
     model_list = classic_no_forced_interactions,
-    output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+    output_base_dir = file.path(project_dir, "output/clustering"),
     eps_values = c(0.6),
     minPts_values = nrow(data_df_renamed) * 0.05, # arbitrary but basically saying "dont give me super tiny clusters" and is roughly == dimensionality pre-UMAP
     n_neighbors_values = c(10),
@@ -1022,7 +1021,7 @@ grid_results <- run_clustering_grid_search(
 )
 
 saveRDS(grid_results, 
-        file = file.path("discrepancies/2025-10-Data-Version/clustering", 
+        file = file.path(project_dir, "output/clustering", 
                          paste0(response_var, "_clustering_grid_results.rds")))
 
 
@@ -1034,8 +1033,7 @@ best_clustering <- find_best_clustering(grid_results, response_var)
 # Save ranking
 write_csv(
     best_clustering$ranking,
-    file.path(
-        "discrepancies/2025-10-Data-Version/clustering",
+    file.path(project_dir, "output/clustering",
         paste0(response_var, "_clustering_ranking.csv")
     )
 )

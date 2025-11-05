@@ -1,15 +1,14 @@
+source(file.path(project_dir, "01-load-data.R"))
 
-source("discrepancies/2025-10-Data-Version/01-load-data.R")
+source(file.path(project_dir, "00-universal-dependencies.R"))
 
-source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
-
-pretty_names <- read_csv("discrepancies/variable_pretty_names.csv")
-source("discrepancies/2025-10-Data-Version/functions/best_models.R")
+pretty_names <- read_csv(file.path(project_dir, "input/variable_pretty_names.csv"))
+source(file.path(project_dir, "functions/best_models.R"))
 response_vars <- variables %>%
     filter(type == "response") %>%
     pull(variable)
 
-rds_file <- "discrepancies/2025-10-Data-Version/processed_data/best_models_classic_no_forced_interactions.rds"
+rds_file <- file.path(project_dir, "output/processed_data/best_models_classic_no_forced_interactions.rds")
 
 if (file.exists(rds_file)) {
     classic_no_forced_interactions <- readRDS(rds_file)
@@ -148,10 +147,7 @@ if (file.exists(rds_file)) {
             plot_layout(heights = c(1, 4))
 
         ggsave(
-            paste0(
-                "discrepancies/2025-10-Data-Version/model_plots/predictor_presence_",
-                response_var, ".pdf"
-            ),
+            file.path(project_dir, "output/model_plots", paste0("predictor_presence_", response_var, ".pdf")),
             plot = combined_plot,
             width = 12, height = 10
         )
@@ -193,10 +189,7 @@ for (response_var in names(classic_no_forced_interactions)) {
         theme_bw()
 
     ggsave(
-        paste0(
-            "discrepancies/2025-10-Data-Version/model_plots/aic_progression_",
-            response_var, ".pdf"
-        ),
+        file.path(project_dir, "output/model_plots", paste0("aic_progression_", response_var, ".pdf")),
         plot = p_steps,
         width = 12, height = 10
     )

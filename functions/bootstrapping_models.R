@@ -3,7 +3,7 @@ bootstrap_models <- function(data_df,variables, n_boot, response_var, seed=1337,
         i = 1:n_boot,
         .packages = c("tidyverse", "stats")
     ) %dopar% {
-        source("discrepancies/manual-stepwise.R")
+        source(file.path(project_dir, "functions/manual-stepwise.R"))
         # sample by indices so we can keep them
         set.seed(seed+i)
         repeat {
@@ -102,7 +102,7 @@ process_bootstrap_results <- function(boot_forward_list, data_df, n_boot) {
 }
 
 # Function to create and save variable frequency plot
-plot_variable_frequency <- function(boot_forward_list, response_var, data_df, n_boot, output_dir = "discrepancies/2025-10-Data-Version/bootstrapped_models") {
+plot_variable_frequency <- function(boot_forward_list, response_var, data_df, n_boot, output_dir = file.path(project_dir, "output/bootstrapped_models")) {
     results <- process_bootstrap_results(boot_forward_list, data_df, n_boot)
     
     p1 <- ggplot(
@@ -128,7 +128,7 @@ plot_variable_frequency <- function(boot_forward_list, response_var, data_df, n_
 }
 
 # Function to analyze and plot model combinations
-plot_model_combinations <- function(boot_forward_list, response_var, data_df, n_boot, output_dir = "discrepancies/2025-10-Data-Version/bootstrapped_models") {
+plot_model_combinations <- function(boot_forward_list, response_var, data_df, n_boot, output_dir = file.path(project_dir, "output/bootstrapped_models")) {
     results <- process_bootstrap_results(boot_forward_list, data_df, n_boot)
     
     # Clean selected variables

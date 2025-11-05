@@ -167,16 +167,10 @@ Path_Acute.infflammation,(Path) Acute Inflammation
 Path_Cautery.Crush.artifact_.average,(Path) Cautery/Crush Artifact [numeric]
 AI_scanning_artifacts_area_.,(AI) Scanning Artifacts [%]
 Path_Tetriary.Lymphoid.Structures,(Path) Tertiary Lymphoid Structures
-TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
-TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
-TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
-TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
-TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
-AI_total_tumor_area_.,AI_total_tumor_area_.
-AI_._of_fibroblasts_in_tumor,AI_._of_fibroblasts_in_tumor
-AI_._of_immune_cells_in_tumor,AI_._of_immune_cells_in_tumor
-Path_Tumor.Infiltrating.lymphocytes,Path_Tumor.Infiltrating.lymphocytes
-AI_total_tumor_area_.,AI_total_tumor_area_.
-AI_._of_fibroblasts_in_tumor,AI_._of_fibroblasts_in_tumor
-AI_._of_immune_cells_in_tumor,AI_._of_immune_cells_in_tumor
-Path_Tumor.Infiltrating.lymphocytes,Path_Tumor.Infiltrating.lymphocytes
+TCC Path-AI Discrepancy,TCC "Path - AI" Discrepancy
+AI_total_tumor_area_.,(AI) Tumor Area [%]
+AI_._of_fibroblasts_in_tumor,(AI) Fibroblasts in Tumor [%]
+AI_._of_immune_cells_in_tumor,(AI) Immune Cells in Tumor [%]
+Path_Tumor.Infiltrating.lymphocytes,(Path) Tumor Infiltrating Lymphocytes
+
+

@@ -17,8 +17,11 @@ library(uwot)
 library(ggnewscale)
 library(ggforce)
 library(parallel)
+library(here)
 
-pretty_names <- read_csv("discrepancies/variable_pretty_names.csv")
+project_dir <- here("discrepancies/2025-10-Data-Version")
+
+pretty_names <- read_csv(file.path(project_dir, "input/variable_pretty_names.csv"))
 # Helper function to clean variable names
 clean_var_names <- function(x) {
     x <- stringr::str_replace_all(x, "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...", "")
@@ -52,7 +55,7 @@ get_pretty_name <- function(var) {
         return(paste0(pretty_prefix, if (nzchar(suffix)) suffix else ""))
     }
     # fallback
-    write_csv(tibble(variable = var, pretty_name = var), "discrepancies/variable_pretty_names.csv", append = TRUE)
+    #write_csv(tibble(variable = var, pretty_name = var), "discrepancies/variable_pretty_names.csv", append = TRUE)
     var
 }
 
@@ -80,6 +83,3 @@ short_var_label <- function(x) {
         stringr::str_trim()
 }
 
-response_vars <- variables %>%
-    filter(type == "response") %>%
-    pull(variable)
