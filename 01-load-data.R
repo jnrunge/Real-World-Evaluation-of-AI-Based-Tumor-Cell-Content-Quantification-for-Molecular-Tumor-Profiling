@@ -1,5 +1,3 @@
-library(tidyverse)
-library(readxl)
 
 # Check if output files exist
 output_files_exist <- all(file.exists(
@@ -372,9 +370,9 @@ for (i in seq_len(nrow(types_tbl))) {
   
 
 ###### REMOVE HIGHLY CORRELATED / REDUNDANT VARS
-highly_cor_vars <- c("AI_non_immune_cell_density_in_tumor_mm2","AI_immune_cell_density_in_tumor_mm2", "AI_%_lymphocytes_in_tumor","AI_%_of_fibroblasts_in_tumor", "AI_%_of_immune_cells_in_tumor", "AI_%_of_non_immune_cells_in_tumor")
-variables <- variables %>% filter(!variable %in% highly_cor_vars)
-data_df <- data_df %>% dplyr::select(-all_of(highly_cor_vars))
+#highly_cor_vars <- c("AI_non_immune_cell_density_in_tumor_mm2","AI_immune_cell_density_in_tumor_mm2", "AI_%_lymphocytes_in_tumor","AI_%_of_fibroblasts_in_tumor", "AI_%_of_immune_cells_in_tumor", "AI_%_of_non_immune_cells_in_tumor")
+#variables <- variables %>% filter(!variable %in% highly_cor_vars)
+#data_df <- data_df %>% dplyr::select(-all_of(highly_cor_vars))
 
 ######
 

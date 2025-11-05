@@ -103,7 +103,6 @@ cluster_radii <- sapply(1:nrow(cluster_centers), function(k) {
     quantile(dists, 0.8, na.rm = TRUE) # 80th percentile distance
 })
 cluster_centers$radius <- cluster_radii
-library(ggforce)
 
 # Plot as a heatmap (geom_tile), overlay cluster circles
 ggplot() +

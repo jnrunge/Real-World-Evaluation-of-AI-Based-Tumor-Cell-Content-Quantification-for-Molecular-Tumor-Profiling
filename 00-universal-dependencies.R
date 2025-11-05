@@ -1,4 +1,22 @@
 library(tidyverse)
+library(readxl)
+library(GGally)
+library(patchwork)
+library(sjPlot)
+library(broom)
+library(ggpubr)
+library(purrr)
+library(foreach)
+library(doParallel)
+library(vip)
+library(ggdendro)
+library(dbscan)
+library(viridis)
+library(factoextra)
+library(uwot)
+library(ggnewscale)
+library(ggforce)
+library(parallel)
 
 pretty_names <- read_csv("discrepancies/variable_pretty_names.csv")
 # Helper function to clean variable names
@@ -36,6 +54,30 @@ get_pretty_name <- function(var) {
     # fallback
     write_csv(tibble(variable = var, pretty_name = var), "discrepancies/variable_pretty_names.csv", append = TRUE)
     var
+}
+
+short_var_label <- function(x) {
+    abbrev <- c(
+        "inflammation" = "infl.",
+        "content" = "cont.",
+        "Tertiary Lymphoid Structures" = "TLS",
+        "Tumor Infiltrating lymphocytes" = "TILs",
+        "Highly cellular stroma" = "cell. stroma"
+    )
+    x %>%
+        stringr::str_replace_all("_", " ") %>%
+        stringr::str_replace_all(" +", " ") %>%
+        {
+            tmp <- .
+            for (pat in names(abbrev)) {
+                tmp <- stringr::str_replace_all(
+                    tmp,
+                    stringr::regex(pat, ignore_case = TRUE), abbrev[pat]
+                )
+            }
+            tmp
+        } %>%
+        stringr::str_trim()
 }
 
 response_vars <- variables %>%

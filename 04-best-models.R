@@ -1,8 +1,10 @@
-library(vip)
-library(sjPlot)
+
+source("discrepancies/2025-10-Data-Version/01-load-data.R")
+
+source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
+
 pretty_names <- read_csv("discrepancies/variable_pretty_names.csv")
 source("discrepancies/2025-10-Data-Version/functions/best_models.R")
-source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
 response_vars <- variables %>%
     filter(type == "response") %>%
     pull(variable)
@@ -89,7 +91,6 @@ if (file.exists(rds_file)) {
             )
 
         # Create dendrogram plot
-        library(ggdendro)
         dend_data <- dendro_data(fit_hclust)
         dend_plot <- ggplot(segment(dend_data)) +
             geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
@@ -143,7 +144,6 @@ if (file.exists(rds_file)) {
             theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
         # Combine dendrogram and main plot
-        library(patchwork)
         combined_plot <- dend_plot / main_plot +
             plot_layout(heights = c(1, 4))
 
@@ -158,9 +158,49 @@ if (file.exists(rds_file)) {
     }
 }
 
+# Print the AIC progression plot for each response in classic_no_forced_interactions
+for (response_var in names(classic_no_forced_interactions)) {
+    fits <- classic_no_forced_interactions[[response_var]]$fits
 
+    steps_combined <- bind_rows(
+        lapply(seq_along(fits), function(i) {
+            steps_tbl <- tryCatch(
+                {
+                    if (!is.null(names(fits[[i]])) && "steps" %in% names(fits[[i]])) {
+                        fits[[i]]$steps
+                    } else {
+                        fits[[i]][[2]]
+                    }
+                },
+                error = function(e) NULL
+            )
+            if (is.null(steps_tbl)) return(NULL)
+            steps_tbl %>% mutate(fit_index = i)
+        })
+    )
 
+    if (is.null(steps_combined) || nrow(steps_combined) == 0) next
 
+    p_steps <- ggplot(steps_combined, aes(x = step, y = AIC)) +
+        geom_line() +
+        geom_point(size = 0.5) +
+        facet_wrap(~ fit_index, scales = "free_y") +
+        labs(
+            title = paste("AIC progression across stepwise selection:", response_var),
+            x = "Step",
+            y = "AIC"
+        ) +
+        theme_bw()
+
+    ggsave(
+        paste0(
+            "discrepancies/2025-10-Data-Version/model_plots/aic_progression_",
+            response_var, ".pdf"
+        ),
+        plot = p_steps,
+        width = 12, height = 10
+    )
+}
 
 ## interpret models 
 # use compare_model_drop_terms(model, terms) to get term importance/significance

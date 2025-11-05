@@ -1,12 +1,7 @@
-library(GGally)
-library(patchwork)
-library(sjPlot)
+
 
 source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
 # univariate test all variables
-
-library(broom)
-library(ggpubr)
 
 
 # Helper to test one variable vs TC_Path_minus_TC_AI

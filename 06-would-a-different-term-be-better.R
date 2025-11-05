@@ -90,7 +90,6 @@ fit_and_aic <- function(subset_data, formula) {
 }
 
 # Parallel setup (using parallel package)
-library(parallel)
 num_cores <- detectCores() - 1 # Leave one core free
 
 # Results list

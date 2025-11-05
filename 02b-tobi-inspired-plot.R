@@ -1,6 +1,5 @@
 source("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")
 
-library(GGally)
 # pretty & simple tobi-inspired plots
 # Pairwise scatterplots and histograms for TC_AI, TC_Path, TC_FMI
 
@@ -146,7 +145,6 @@ p_matrix <- p_matrix + theme(
 )
 
 # 2. Faceted by Tissue (split by Tissue)
-library(purrr)
 tissue_levels <- unique(df$Cancer)
 tissue_levels <- tissue_levels[!is.na(tissue_levels)]
 p_matrix_tissue_list <- map(
@@ -192,7 +190,6 @@ p_matrix_tissue_list <- map(
 )
 
 # Optionally, combine all plots (original + by tissue) using patchwork
-library(patchwork)
 # Combine all plots (original + by tissue) in a grid with ncol = ceiling((1 + length(p_matrix_tissue_list)) / 2)
 all_pmatrices <- c(list(p_matrix), p_matrix_tissue_list)
 n_plots <- length(all_pmatrices)

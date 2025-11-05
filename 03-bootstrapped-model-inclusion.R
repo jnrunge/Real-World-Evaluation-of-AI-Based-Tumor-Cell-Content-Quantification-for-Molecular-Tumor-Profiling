@@ -1,8 +1,5 @@
 
 
-library(foreach)
-library(doParallel)
-library(dplyr)
 source("discrepancies/manual-stepwise.R")
 source("discrepancies/2025-10-Data-Version/functions/bootstrapping_models.R")
 response_vars <- variables %>%
@@ -52,7 +49,7 @@ if (ncol(corr_data) > 1) {
 
 
 steps_to_run <- 2000 # this is not n_boot number of bootstraps but rather how long each stepwise should run
-n_boot <- 5000
+n_boot <- 1000
 
 # Iterate over all response_vars
 results_list <- foreach(response_var = response_vars) %do% {

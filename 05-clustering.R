@@ -1,440 +1,444 @@
-library(dbscan)
-library(ggplot2)
-library(viridis) # for colorblind-friendly palettes
-library(factoextra)
-library(dplyr)
-library(uwot)
 
+# ---- Helper Functions ----
 
-response_var <- "TCC_Patho_minus_TCC_AI"
+#' Prepare model variables matrix
+#' @param response_var Response variable name
+#' @param data_df_renamed Data frame with renamed variables
+#' @param model_list List of models
+#' @return Data frame with model variables
+prepare_model_variables <- function(response_var, data_df_renamed, model_list) {
+    model_vars <- model_list[[response_var]]$model %>%
+        formula() %>%
+        as.character() %>%
+        .[3] %>%
+        strsplit(split = " + ", fixed = TRUE) %>%
+        unlist() %>%
+        trimws()
+    
+    X <- data_df_renamed %>%
+        dplyr::select(all_of(model_vars[!grepl(":", model_vars, fixed = TRUE)])) %>%
+        mutate(
+            across(where(is.character), as.factor),
+            across(where(is.factor), as.numeric)
+        )
+    
+    return(X)
+}
 
-## 1. pick 5 “far-apart” samples by k-means on the predictors
-set.seed(123)
-# 1. Cluster on the explanatory variables
-# Only include variables present in the model formula
-model_vars <- classic_no_forced_interactions[[response_var]]$model %>%
-    formula() %>%
-    as.character() %>%
-    .[3] %>%
-    strsplit(split = " + ", fixed = TRUE) %>%
-    unlist() %>%
-    trimws()
+#' Perform UMAP transformation
+#' @param X Model variables matrix
+#' @param n_neighbors Number of neighbors for UMAP
+#' @param min_dist Minimum distance for UMAP
+#' @param seed Random seed
+#' @return UMAP result as data frame
+perform_umap <- function(X, n_neighbors = 15, min_dist = 0.1, seed = 123) {
+    set.seed(seed)
+    umap_result <- umap(scale(X), n_neighbors = n_neighbors, min_dist = min_dist, metric = "euclidean")
+    umap_df <- as.data.frame(umap_result)
+    colnames(umap_df) <- c("UMAP1", "UMAP2")
+    return(umap_df)
+}
 
-# 2. compute predictions and residuals
+#' Plot UMAP embedding
+#' @param umap_df UMAP coordinates
+#' @param output_dir Output directory
+#' @param response_var Response variable name
+plot_umap_embedding <- function(umap_df, output_dir, response_var) {
+    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    p <- ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
+        geom_point(alpha = 0.7, size = 2) +
+        labs(title = "UMAP of Model Variables (scaled)") +
+        theme_minimal()
+    
+    ggsave(file.path(output_dir, paste0(response_var, "_umap_embedding.png")), 
+           plot = p, width = 8, height = 6, dpi = 300)
+    print(p)
+}
 
+#' Determine DBSCAN parameters and perform clustering
+#' @param umap_df UMAP coordinates
+#' @param eps Epsilon parameter
+#' @param minPts Minimum points parameter
+#' @param output_dir Output directory
+#' @return DBSCAN result object
+perform_dbscan_clustering <- function(umap_df, eps = 0.6, minPts = NULL, output_dir) {
+    # Plot k-NN distance for parameter selection
+    kNNdist <- kNNdistplot(umap_df, k = 1:10)
+    abline(h = eps, lty = 2)
+    
+    if (is.null(minPts)) {
+        minPts <- 2 * ncol(umap_df)
+    }
+    db <- dbscan(umap_df, eps = eps, minPts = minPts)
+    print(db)
+    
+    return(db)
+}
 
+#' Visualize DBSCAN clusters on UMAP
+#' @param umap_df UMAP coordinates
+#' @param db_clusters DBSCAN cluster assignments
+#' @param output_dir Output directory
+#' @param response_var Response variable name
+plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var) {
+    umap_df$cluster <- factor(db_clusters)
+    
+    # Ensure noise cluster (0) is black
+    cluster_levels <- levels(umap_df$cluster)
+    if ("0" %in% cluster_levels) {
+        non_noise <- setdiff(cluster_levels, "0")
+        vir_cols <- if (length(non_noise) > 0) viridis::viridis(length(non_noise), option = "C", begin = 0.1, end = 0.9, direction = 1) else character(0)
+        color_values <- setNames(c("black", vir_cols), c("0", non_noise))
+        legend_breaks <- c("0", non_noise)
+    } else {
+        color_values <- setNames(viridis::viridis(length(cluster_levels), option = "C", begin = 0.1, end = 0.9, direction = 1), cluster_levels)
+        legend_breaks <- cluster_levels
+    }
 
-X <- data_df_renamed %>%
-    dplyr::select(all_of(model_vars[!grepl(":",model_vars,fixed=TRUE)])) %>% 
-    mutate(
-        across(where(is.character), as.factor),
-        across(where(is.factor), as.numeric)
+    p <- ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = cluster)) +
+        geom_point(alpha = 0.7, size = 2) +
+        scale_color_manual(values = color_values, breaks = legend_breaks, drop = FALSE) +
+        labs(title = "UMAP of Model Variables (scaled) colored by DBSCAN cluster",
+             color = "Cluster") +
+        theme_bw(14)
+    
+    print(p)
+    ggsave(file.path(output_dir, paste0(response_var, "_dbscan_umap_clusters.png")), 
+           width = 8, height = 6, dpi = 300)
+    
+    return(umap_df)
+}
+
+#' Compute cluster statistics and predictions
+#' @param db_clusters DBSCAN cluster assignments
+#' @param response_var Response variable name
+#' @param data_df Original data frame
+#' @param data_df_renamed Data frame with renamed variables
+#' @param model_list List of models
+#' @return List with df_all and cluster_counts
+compute_cluster_statistics <- function(db_clusters, response_var, data_df, 
+                                      data_df_renamed, model_list) {
+    cluster_counts <- tibble(cluster = db_clusters) %>%
+        count(cluster) %>%
+        mutate(pct = n / sum(n) * 100)
+    
+    preds_all <- predict(
+        model_list[[response_var]]$model,
+        newdata = data_df_renamed
     )
+    
+    df_all <- data_df %>%
+        mutate(
+            pred = preds_all,
+            res = abs(.data[[response_var]] - pred),
+            cluster = db_clusters
+        )
+    
+    return(list(df_all = df_all, cluster_counts = cluster_counts))
+}
 
+#' Create boxplot of discrepancy by cluster
+#' @param df_all Data frame with clusters and predictions
+#' @param cluster_counts Cluster size counts
+#' @param response_var Response variable name
+#' @param output_dir Output directory
+plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_dir) {
+    samples_cluster_labels <- cluster_counts %>%
+        mutate(cluster_label = paste0("C", cluster, "\n", round(pct, 1), "%"))
+    
+    df_all <- df_all %>%
+        left_join(samples_cluster_labels %>% 
+                     dplyr::select(cluster, cluster_label), by = "cluster")
+    
+    # Build color mapping: noise cluster (0) -> black, others -> viridis
+    # Ensure ordering and presence of 0 label if present
+    legend_breaks <- samples_cluster_labels$cluster_label
+    # Identify label for cluster 0
+    zero_label <- samples_cluster_labels %>%
+        filter(cluster == 0) %>%
+        pull(cluster_label)
+    # Non-noise labels
+    nn_labels <- setdiff(legend_breaks, zero_label)
+    vir_cols <- if (length(nn_labels) > 0) {
+        viridis::viridis(length(nn_labels), option = "C", begin = 0.1, end = 0.9, direction = 1)
+    } else character(0)
+    color_values <- if (length(zero_label) > 0) {
+        setNames(c("black", vir_cols), c(zero_label, nn_labels))
+    } else {
+        setNames(vir_cols, nn_labels)
+    }
+    
+    mean_pred_by_cluster <- df_all %>%
+        dplyr::group_by(cluster_label) %>%
+        summarise(mean_pred = mean(pred, na.rm = TRUE))
+    
+    p_summary <- ggplot(df_all, aes(x = factor(cluster_label, 
+                                               levels = samples_cluster_labels$cluster_label), 
+                                   y = .data[[response_var]], 
+                                   fill = cluster_label)) +
+        geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+        geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+        geom_point(
+            data = mean_pred_by_cluster,
+            aes(x = cluster_label, y = mean_pred),
+            color = "white", size = 4, shape = 18, inherit.aes = FALSE
+        ) +
+        labs(x = "Cluster (size % of data)",
+             y = paste(response_var, "discrepancy")) +
+        theme_bw(14) +
+        theme(legend.position = "none") +
+        scale_fill_manual(values = color_values, breaks = legend_breaks, drop = FALSE)
+    
+    ggsave(file.path(output_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.png")), 
+           plot = p_summary, width = 8, height = 6, dpi = 300)
+    
+    return(df_all)
+}
 
-## dbscan
+#' Export extreme discrepancy counts by cluster
+#' @param df_all Data frame with clusters
+#' @param response_var Response variable name
+#' @param output_dir Output directory
+export_extreme_discrepancies <- function(df_all, response_var, output_dir) {
+    df_all %>%
+        group_by(cluster) %>%
+        summarise(
+            n_high = sum(.data[[response_var]] > 20, na.rm = TRUE),
+            n_low = sum(.data[[response_var]] < -20, na.rm = TRUE),
+            total = n(),
+            pct_high = n_high / total * 100,
+            pct_low = n_low / total * 100
+        ) %>%
+        write_excel_csv2(file.path(output_dir, paste0(response_var, "_cluster_extreme_discrepancy_counts.csv")))
+}
 
-# decide on epsiolon an minpts
-
-X2 <- bind_cols(X, dplyr::select(data_df_renamed, TCC_Patho_minus_TCC_AI))
-
-# UMAP transform first
-
-set.seed(123)
-umap_result <- umap(scale(X), n_neighbors = 15, min_dist = 0.1, metric = "euclidean")
-umap_df <- as.data.frame(umap_result)
-colnames(umap_df) <- c("UMAP1", "UMAP2")
-
-# Plot UMAP embedding colored by cluster
-ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
-    geom_point(alpha = 0.7, size = 2) +
-    labs(title = "UMAP of Model Variables (scaled)") +
-    theme_minimal()
-
-kNNdist <- kNNdistplot(umap_df, k = 1:10)
-abline(h = 0.6, lty = 2)
-
-minpts <- 2 * ncol(umap_df)
-
-db <- dbscan(umap_df, eps = 0.6, minPts = minpts)
-print(db)
-
-umap_df$cluster <- factor(db$cluster)
-
-
-
-ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = cluster)) +
-    geom_point(alpha = 0.7, size = 2) +
-    scale_color_viridis_d(option = "C", begin = 0.1, end = 0.9, direction = 1) +
-    labs(title = "UMAP of Model Variables (scaled) colored by DBSCAN cluster") +
-    theme_minimal(14) +
-    labs(color = "Cluster")
-
-
-dir.create("discrepancies/2025-10-Data-Version/clustering", showWarnings = FALSE)
-ggsave("discrepancies/2025-10-Data-Version/clustering/dbscan_umap_clusters.png", width = 8, height = 6, dpi = 300)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 1a. compute cluster sizes (as % of all rows)
-cluster_counts <- tibble(cluster = db$cluster) %>%
-    count(cluster) %>%
-    mutate(pct = n / sum(n) * 100)
-
-preds_all <- predict(
-    classic_no_forced_interactions[[response_var]]$model,
-    newdata = data_df_renamed
-)
-
-df_all <- data_df %>%
-    mutate(
-        pred    = preds_all,
-        res     = abs(TCC_Patho_minus_TCC_AI - pred),
-        cluster = db$cluster
+#' Analyze term contributions per cluster
+#' @param df_all Data frame with clusters
+#' @param response_var Response variable name
+#' @param model_list List of models
+#' @param output_dir Output directory
+analyze_term_contributions <- function(df_all, response_var, model_list, output_dir) {
+    # Exclude noise cluster (0) from contribution plots
+    df_all_nn <- df_all %>% filter(cluster != 0)
+    if (nrow(df_all_nn) == 0 || length(unique(df_all_nn$cluster)) == 0) {
+        message("No non-noise clusters to analyze for term contributions. Skipping plots.")
+        return(invisible(NULL))
+    }
+    
+    # Select representative samples
+    cluster_counts <- df_all_nn %>%
+        count(cluster) %>%
+        mutate(pct = n / sum(n) * 100)
+    
+    samples <- df_all_nn %>%
+        group_by(cluster) %>%
+        slice_min(order_by = res, n = 1) %>%
+        ungroup() %>%
+        left_join(cluster_counts, by = "cluster") %>%
+        mutate(
+            sample_id = cluster,
+            sample_label = paste0("C", cluster, "\n", round(pct, 1), "%")
+        )
+    
+    names(samples) <- make.names(names(samples), unique = TRUE)
+    
+    # Get per-term contributions for samples
+    contr_mat <- predict(
+        model_list[[response_var]]$model,
+        newdata = samples,
+        type = "terms"
     )
-
-# 3. pick one “well‐explained” sample per cluster
-samples <- df_all %>%
-    group_by(cluster) %>%
-    slice_min(order_by = res, n = 1) %>%
-    ungroup() %>%
-    # join cluster size pct and assign sample_id
-    left_join(cluster_counts, by = "cluster") %>%
-    mutate(
-        sample_id    = cluster,
-        sample_label = paste0("C", cluster, "\n", round(pct, 1), "%")
+    
+    contr_list <- as_tibble(contr_mat) %>%
+        mutate(sample_id = samples$sample_id) %>%
+        pivot_longer(cols = -sample_id, names_to = "term", values_to = "contribution")
+    
+    p_contrib <- ggplot(contr_list, aes(x = term, y = contribution, 
+                                        fill = contribution > 0)) +
+        geom_col(show.legend = FALSE) +
+        facet_wrap(~sample_id, scales = "free_x") +
+        scale_x_discrete(labels = function(x) unlist(lapply(x, get_pretty_name))) +
+        coord_flip() +
+        labs(title = "Per-Term Contributions to the Linear Predictor") +
+        theme_bw(base_size = 11)
+    
+    ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_per_sample.png")), 
+           plot = p_contrib, width = 8, height = 6, dpi = 300)
+    
+    # Contributions for all cluster members
+    df_all_contrib <- df_all_nn
+    names(df_all_contrib) <- make.names(names(df_all_contrib), unique = TRUE)
+    
+    contr_mat_all <- predict(
+        model_list[[response_var]]$model,
+        newdata = df_all_contrib,
+        type = "terms"
     )
+    
+    contr_list_all <- as_tibble(contr_mat_all) %>%
+        mutate(cluster = df_all_contrib$cluster) %>%
+        pivot_longer(cols = -cluster, names_to = "term", values_to = "contribution")
+    
+    contr_summary <- contr_list_all %>%
+        group_by(cluster, term) %>%
+        summarise(
+            mean_contribution = mean(contribution, na.rm = TRUE),
+            median_contribution = median(contribution, na.rm = TRUE),
+            min_contribution = min(contribution, na.rm = TRUE),
+            max_contribution = max(contribution, na.rm = TRUE),
+            .groups = "drop"
+        )
+    
+    p_contrib_all <- ggplot(contr_summary, aes(x = term, y = mean_contribution, 
+                                               fill = cluster)) +
+        geom_col(position = "dodge", show.legend = TRUE) +
+        geom_errorbar(
+            aes(ymin = min_contribution, ymax = max_contribution),
+            position = position_dodge(width = 0.9), width = 0.2
+        ) +
+        facet_wrap(~cluster, scales = "free_x") +
+        scale_x_discrete(labels = function(x) unlist(lapply(x, get_pretty_name))) +
+        coord_flip() +
+        labs(title = "Per-Term Contributions to the Linear Predictor (All Cluster Members)",
+             y = "Contribution", x = "Term") +
+        theme_minimal(base_size = 11)
+    
+    ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_all_cluster_members.png")), 
+           plot = p_contrib_all, width = 10, height = 8, dpi = 300)
+}
 
-# 4. ensure syntactic names
-names(samples) <- make.names(names(samples), unique = TRUE)
-
-# 5. get predictions + 95% CI for these samples
-# Boxplots of observed TC_Path_minus_TC_AI values for the four clusters
-
-# Add cluster labels with size percentage
-samples_cluster_labels <- cluster_counts %>%
-    mutate(cluster_label = paste0("C", cluster, "\n", round(pct, 1), "%"))
-
-df_all <- df_all %>%
-    left_join(samples_cluster_labels %>% dplyr::select(cluster, cluster_label), by = "cluster")
-
-# Compute mean predicted value per cluster
-mean_pred_by_cluster <- df_all %>%
-    dplyr::group_by(cluster_label) %>%
-    summarise(mean_pred = mean(pred, na.rm = TRUE))
-
-# Plot boxplots of observed values by cluster, add mean predicted value as a point
-p_summary <- ggplot(df_all, aes(x = factor(cluster_label, levels = samples_cluster_labels$cluster_label), y = TCC_Patho_minus_TCC_AI, fill = cluster_label)) +
-    geom_boxplot(alpha = 0.7, outlier.shape = NA) +
-    geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
-    geom_point(
-        data = mean_pred_by_cluster,
-        aes(x = cluster_label, y = mean_pred),
-        color = "white", size = 4, shape = 18, inherit.aes = FALSE
-    ) +
-    labs(
-        x = "Cluster (size % of data)",
-        y = "TCC Path-AI discrepancy",
-        title = NULL,
-        subtitle = NULL
-    ) +
-    theme_bw(14) +
-    theme(legend.position = "none") +
-    scale_fill_viridis_d(option = "C", begin = 0.1, end = 0.9, direction = 1)
-
-ggsave("discrepancies/2025-10-Data-Version/clustering/boxplot_TCC_discrepancy_by_cluster.png", plot = p_summary, width = 8, height = 6, dpi = 300)
-
-
-
-
-
-
-
-
-
-
-
-
-df_all %>%
-    group_by(cluster) %>%
-    summarise(
-        n_high = sum(TCC_Patho_minus_TCC_AI > 20, na.rm = TRUE),
-        n_low = sum(TCC_Patho_minus_TCC_AI < -20, na.rm = TRUE),
-        total = n(),
-        pct_high = n_high / total * 100,
-        pct_low = n_low / total * 100
-    ) %>%
-    print() %>% write_excel_csv2("discrepancies/2025-10-Data-Version/clustering/cluster_extreme_discrepancy_counts.csv")
-
-## 4. decompose each prediction into covariate contributions
-# get each term’s contribution via predict(type="terms")
-contr_mat <- predict(
-    classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
-    newdata = samples,
-    type = "terms"
-)
-contr_list <- as_tibble(contr_mat) %>%
-    mutate(sample_id = samples$sample_id) %>%
-    pivot_longer(
-        cols = -sample_id,
-        names_to = "term",
-        values_to = "contribution"
-    )
-
-# now contr_list has one row per sample_id×term
-head(contr_list)
-
-p_contrib <- ggplot(contr_list, aes(x = term, y = contribution, fill = contribution > 0)) +
-    geom_col(show.legend = FALSE) +
-    facet_wrap(~sample_id, scales = "free_x") +
-    scale_x_discrete(
-        labels = function(x) {
-            unlist(lapply(x, get_pretty_name))
+#' Plot variable distributions by cluster
+#' @param data_df_renamed Data frame with renamed variables
+#' @param db_clusters DBSCAN cluster assignments
+#' @param response_var Response variable name
+#' @param model_list List of models
+#' @param X Model variables matrix
+#' @param output_dir Output directory
+plot_variable_distributions <- function(data_df_renamed, db_clusters, response_var, 
+                                       model_list, X, output_dir) {
+    data_df_renamed_only_model_vars <- model_list[[response_var]]$model %>%
+        formula() %>%
+        as.character()
+    
+    data_df_renamed_only_model_vars <- data_df_renamed_only_model_vars[3] %>%
+        strsplit(split = " + ", fixed = TRUE) %>%
+        unlist() %>%
+        str_replace_all("\n", "") %>%
+        str_replace_all(" ", "")
+    
+    clustered_data <- dplyr::select(data_df_renamed, 
+                                   all_of(data_df_renamed_only_model_vars[
+                                       !grepl(":", data_df_renamed_only_model_vars, fixed = TRUE)])) %>%
+        mutate(cluster = factor(db_clusters))
+    
+    # Exclude noise cluster (0)
+    clustered_data <- clustered_data %>%
+        filter(cluster != "0") %>%
+        droplevels()
+    
+    missing_cols <- setdiff(names(X), names(clustered_data))
+    if (length(missing_cols) > 0) {
+        clustered_data <- bind_cols(clustered_data, X[missing_cols])
+    }
+    
+    # Numeric variables
+    if (response_var %in% names(clustered_data)) {
+        df_num <- clustered_data %>%
+            dplyr::select(cluster, where(is.numeric), -!!response_var) %>%
+            pivot_longer(cols = -cluster, names_to = "variable", values_to = "value")
+    } else {
+        df_num <- clustered_data %>%
+            dplyr::select(cluster, where(is.numeric)) %>%
+            pivot_longer(cols = -cluster, names_to = "variable", values_to = "value")
+    }
+    
+    p_num <- ggplot(df_num, aes(x = value, fill = cluster)) +
+        geom_density(alpha = 0.5) +
+        facet_wrap(~variable, scales = "free", ncol = 3,
+                  labeller = labeller(variable = as_labeller(
+                      function(x) unlist(lapply(x, get_pretty_name))))) +
+        theme_bw() +
+        labs(title = "Distributions of Numeric Model Variables by Cluster",
+             x = NULL, y = "Density", fill = "Cluster")
+    
+    ggsave(file.path(output_dir, paste0(response_var, "_numeric_variable_distributions_by_cluster.pdf")), 
+           plot = p_num, width = 12, height = 8)
+    
+    # Categorical variables
+    fac_cols <- names(clustered_data)[
+        sapply(clustered_data, is.factor) & names(clustered_data) != "cluster"
+    ]
+    
+    if (length(fac_cols) > 0) {
+        df_cat <- clustered_data %>%
+            dplyr::select(cluster, all_of(fac_cols)) %>%
+            mutate(across(-cluster, as.character)) %>%
+            pivot_longer(-cluster, names_to = "variable", values_to = "value")
+        
+        if (nrow(df_cat) > 0) {
+            p_cat <- ggplot(df_cat, aes(x = value, fill = cluster)) +
+                geom_bar(position = "dodge") +
+                facet_wrap(~variable, scales = "free", ncol = 3,
+                          labeller = labeller(variable = as_labeller(
+                              function(x) unlist(lapply(x, get_pretty_name))))) +
+                theme_bw() +
+                theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+                labs(title = "Distributions of Categorical Model Variables by Cluster",
+                     x = NULL, y = "Count", fill = "Cluster")
+            
+            ggsave(file.path(output_dir, paste0(response_var, "_categorical_variable_distributions_by_cluster.pdf")), 
+                   plot = p_cat, width = 12, height = 8)
         }
-    ) +
-    coord_flip() +
-    labs(title = "Per‐Term Contributions to the Linear Predictor") +
-    theme_bw(base_size = 11)
-
-## 5. print plots and a one‐liner for each
-
-ggsave("discrepancies/2025-10-Data-Version/clustering/per_term_contributions_per_sample.png", plot = p_contrib, width = 8, height = 6, dpi = 300)
-
-df_all_contrib <- df_all
-names(df_all_contrib) <- make.names(names(df_all_contrib), unique = TRUE)
-
-
-# Calculate contributions for all members of each cluster
-contr_mat_all <- predict(
-    classic_no_forced_interactions[[response_var]]$model,
-    newdata = df_all_contrib, # Use all data instead of just samples
-    type = "terms"
-)
-
-# Convert contributions to a tidy format
-contr_list_all <- as_tibble(contr_mat_all) %>%
-    mutate(cluster = df_all_contrib$cluster) %>%
-    pivot_longer(
-        cols = -cluster,
-        names_to = "term",
-        values_to = "contribution"
-    )
-
-# Summarize contributions for each term within each cluster
-contr_summary <- contr_list_all %>%
-    group_by(cluster, term) %>%
-    summarise(
-        mean_contribution = mean(contribution, na.rm = TRUE),
-        median_contribution = median(contribution, na.rm = TRUE),
-        min_contribution = min(contribution, na.rm = TRUE),
-        max_contribution = max(contribution, na.rm = TRUE),
-        .groups = "drop"
-    )
-
-# Visualize the range of contributions for each term within each cluster
-p_contrib_all <- ggplot(contr_summary, aes(x = term, y = mean_contribution, fill = cluster)) +
-    geom_col(position = "dodge", show.legend = TRUE) +
-    geom_errorbar(
-        aes(
-            ymin = min_contribution,
-            ymax = max_contribution
-        ),
-        position = position_dodge(width = 0.9),
-        width = 0.2
-    ) +
-    facet_wrap(~cluster, scales = "free_x") +
-    scale_x_discrete(
-        labels = function(x) {
-            unlist(lapply(x, get_pretty_name))
-        }
-    ) +
-    coord_flip() +
-    labs(
-        title = "Per-Term Contributions to the Linear Predictor (All Cluster Members)",
-        y = "Contribution",
-        x = "Term"
-    ) +
-    theme_minimal(base_size = 11)
-
-ggsave("discrepancies/2025-10-Data-Version/clustering/per_term_contributions_all_cluster_members.png", plot = p_contrib_all, width = 10, height = 8, dpi = 300)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-data_df_renamed_only_model_vars <- classic_no_forced_interactions[[response_var]]$model %>%
-    formula() %>%
-    as.character()
-
-data_df_renamed_only_model_vars <- data_df_renamed_only_model_vars[3] %>%
-    strsplit(split = " + ", fixed = TRUE) %>%
-    unlist()
-
-data_df_renamed_only_model_vars <- data_df_renamed_only_model_vars %>%
-    str_replace_all("\n", "") %>%
-    str_replace_all(" ", "")
-
-clustered_data <- dplyr::select(data_df_renamed, all_of(data_df_renamed_only_model_vars[!grepl(":",data_df_renamed_only_model_vars,fixed=TRUE)])) %>%
-    mutate(cluster = factor(db$cluster))
-
-# Ensure all columns in X are present in clustered_data
-missing_cols <- setdiff(names(X), names(clustered_data))
-if (length(missing_cols) > 0) {
-    clustered_data <- bind_cols(clustered_data, X[missing_cols])
-}
-
-# 1) Numeric variables: density by cluster
-if (response_var %in% names(clustered_data)) {
-    df_num <- clustered_data %>%
-        dplyr::select(cluster, where(is.numeric), -!!response_var) %>%
-        pivot_longer(cols = -cluster, names_to = "variable", values_to = "value")
-} else {
-    df_num <- clustered_data %>%
-        dplyr::select(cluster, where(is.numeric)) %>%
-        pivot_longer(cols = -cluster, names_to = "variable", values_to = "value")
-}
-
-# Special handling for TC_Path_minus_TC_AI if present
-has_tc_path <- response_var %in% names(clustered_data)
-if (has_tc_path) {
-    df_tc_path <- clustered_data %>%
-        dplyr::select(cluster, !!response_var) %>%
-        pivot_longer(cols = -cluster, names_to = "variable", values_to = "value")
-}
-
-p_num <- ggplot(df_num, aes(x = value, fill = cluster)) +
-    geom_density(alpha = 0.5) +
-    facet_wrap(
-        ~variable,
-        scales = "free",
-        ncol = 3,
-        labeller = labeller(variable = as_labeller(function(x) {
-            unlist(lapply(x, get_pretty_name))
-        }))
-    ) +
-    theme_bw() +
-    labs(
-        title = "Distributions of Numeric Model Variables by Cluster",
-        x = NULL, y = "Density", fill = "Cluster"
-    )
-
-
-ggsave("discrepancies/2025-10-Data-Version/clustering/numeric_variable_distributions_by_cluster.pdf", plot = p_num, width = 12, height = 8)
-
-
-
-# 2) Categorical variables: bar chart by cluster
-fac_cols <- names(clustered_data)[
-    sapply(clustered_data, is.factor) & names(clustered_data) != "cluster"
-]
-if (length(fac_cols) > 0) {
-    df_cat <- clustered_data %>%
-        dplyr::select(cluster, all_of(fac_cols)) %>%
-        mutate(across(-cluster, as.character)) %>% # convert all factor columns to character
-        pivot_longer(-cluster, names_to = "variable", values_to = "value")
-
-    if (nrow(df_cat) > 0) {
-        p_cat <- ggplot(df_cat, aes(x = value, fill = cluster)) +
-            geom_bar(position = "dodge") +
-            facet_wrap(~variable,
-                scales = "free", ncol = 3,
-                labeller = labeller(variable = as_labeller(function(x) {
-                    unlist(lapply(x, get_pretty_name))
-                }))
-            ) +
-            theme_bw() +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-            labs(
-                title = "Distributions of Categorical Model Variables by Cluster",
-                x = NULL, y = "Count", fill = "Cluster"
-            )
-
-        print(p_cat)
-        ggsave("discrepancies/2025-10-Data-Version/clustering/categorical_variable_distributions_by_cluster.pdf", plot = p_cat, width = 12, height = 8)
     }
 }
 
-# Summarized "heatmap" of variable means per cluster (numeric) and mode per cluster (categorical)
-# For numeric variables: compute mean and SD per cluster, compare to overall mean/SD
-num_summary <- df_num %>%
-    group_by(variable, cluster) %>%
-    summarise(
-        mean_val = mean(value, na.rm = TRUE),
-        sd_val = sd(value, na.rm = TRUE),
-        n = n(),
-        .groups = "drop"
-    ) %>%
-    left_join(
-        df_num %>%
-            group_by(variable) %>%
-            summarise(
-                overall_mean = mean(value, na.rm = TRUE),
-                overall_sd = sd(value, na.rm = TRUE),
-                .groups = "drop"
-            ),
-        by = "variable"
-    ) %>%
-    mutate(
-        z = (mean_val - overall_mean) / overall_sd,
-        # Discretize z-score into categories
-        cat = case_when(
-            z > 1.5 ~ "++",
-            z > 0.5 ~ "+",
-            z > -0.5 ~ "=",
-            z > -1.5 ~ "-",
-            TRUE ~ "--"
-        ),
-        # Use SD to indicate variation (e.g., as alpha or size)
-        variation = sd_val / overall_sd
-    )
-
-# For categorical variables: compute most frequent value per cluster and its proportion
-cat_summary <- if (exists("df_cat")) {
-    df_cat %>%
-        group_by(variable, cluster, value) %>%
-        summarise(n = n(), .groups = "drop") %>%
-        group_by(variable, cluster) %>%
-        mutate(prop = n / sum(n)) %>%
-        arrange(variable, cluster, desc(prop)) %>%
-        slice(1) %>%
-        ungroup() %>%
-        mutate(
-            # Use prop to indicate how dominant the mode is (variation)
-            variation = 1 - prop
-        )
-} else {
-    tibble()
-}
-
-# Special summary for TC_Path_minus_TC_AI
-tc_path_summary <- NULL
-if (has_tc_path) {
-    tc_path_summary <- df_tc_path %>%
+#' Create cluster summary heatmap
+#' @param data_df_renamed Data frame with renamed variables
+#' @param db_clusters DBSCAN cluster assignments
+#' @param df_all Data frame with predictions
+#' @param response_var Response variable name
+#' @param model_list List of models
+#' @param X Model variables matrix
+#' @param output_dir Output directory
+create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all, 
+                                  response_var, model_list, X, output_dir) {
+    # ...existing code to prepare clustered_data...
+    data_df_renamed_only_model_vars <- model_list[[response_var]]$model %>%
+        formula() %>%
+        as.character()
+    
+    data_df_renamed_only_model_vars <- data_df_renamed_only_model_vars[3] %>%
+        strsplit(split = " + ", fixed = TRUE) %>%
+        unlist() %>%
+        str_replace_all("\n", "") %>%
+        str_replace_all(" ", "")
+    
+    clustered_data <- dplyr::select(data_df_renamed, 
+                                   all_of(data_df_renamed_only_model_vars[
+                                       !grepl(":", data_df_renamed_only_model_vars, fixed = TRUE)])) %>%
+        mutate(cluster = factor(db_clusters)) %>%
+        # Exclude noise cluster (0)
+        filter(cluster != "0") %>%
+        droplevels()
+    
+    missing_cols <- setdiff(names(X), names(clustered_data))
+    if (length(missing_cols) > 0) {
+        clustered_data <- bind_cols(clustered_data, X[missing_cols])
+    }
+    
+    # Numeric variables summary
+    if (response_var %in% names(clustered_data)) {
+        df_num <- clustered_data %>%
+            dplyr::select(cluster, where(is.numeric), -!!response_var) %>%
+            pivot_longer(cols = -cluster, names_to = "variable", values_to = "value")
+    } else {
+        df_num <- clustered_data %>%
+            dplyr::select(cluster, where(is.numeric)) %>%
+            pivot_longer(cols = -cluster, names_to = "variable", values_to = "value")
+    }
+    
+    num_summary <- df_num %>%
         group_by(variable, cluster) %>%
         summarise(
             mean_val = mean(value, na.rm = TRUE),
@@ -442,20 +446,55 @@ if (has_tc_path) {
             n = n(),
             .groups = "drop"
         ) %>%
+        left_join(
+            df_num %>%
+                group_by(variable) %>%
+                summarise(
+                    overall_mean = mean(value, na.rm = TRUE),
+                    overall_sd = sd(value, na.rm = TRUE),
+                    .groups = "drop"
+                ),
+            by = "variable"
+        ) %>%
         mutate(
-            # Use hard cutoffs for category
+            z = (mean_val - overall_mean) / overall_sd,
             cat = case_when(
-                mean_val > 40 ~ "++",
-                mean_val > 20 ~ "+",
-                mean_val > 0 ~ "=",
-                mean_val > -20 ~ "-",
+                z > 1.5 ~ "++",
+                z > 0.5 ~ "+",
+                z > -0.5 ~ "=",
+                z > -1.5 ~ "-",
                 TRUE ~ "--"
             ),
-            variation = sd_val / (max(abs(mean_val), 1e-6)) # avoid div by zero
+            variation = sd_val / overall_sd
         )
-} else {
-    # find the means etc for the clusters
+    
+    # Categorical variables summary
+    fac_cols <- names(clustered_data)[
+        sapply(clustered_data, is.factor) & names(clustered_data) != "cluster"
+    ]
+    
+    cat_summary <- if (length(fac_cols) > 0) {
+        df_cat <- clustered_data %>%
+            dplyr::select(cluster, all_of(fac_cols)) %>%
+            mutate(across(-cluster, as.character)) %>%
+            pivot_longer(-cluster, names_to = "variable", values_to = "value")
+        
+        df_cat %>%
+            group_by(variable, cluster, value) %>%
+            summarise(n = n(), .groups = "drop") %>%
+            group_by(variable, cluster) %>%
+            mutate(prop = n / sum(n)) %>%
+            arrange(variable, cluster, desc(prop)) %>%
+            slice(1) %>%
+            ungroup() %>%
+            mutate(variation = 1 - prop)
+    } else {
+        tibble()
+    }
+    
+    # Response variable summary (exclude noise cluster 0)
     tc_path_summary <- df_all %>%
+        filter(cluster != 0) %>%
         group_by(cluster) %>%
         summarise(
             mean_val = mean(.data[[response_var]], na.rm = TRUE),
@@ -464,7 +503,6 @@ if (has_tc_path) {
             .groups = "drop"
         ) %>%
         mutate(
-            # Use hard cutoffs for category
             cat = case_when(
                 mean_val > 20 ~ "++",
                 mean_val > 10 ~ "+",
@@ -472,33 +510,28 @@ if (has_tc_path) {
                 mean_val < -20 ~ "--",
                 TRUE ~ "="
             ),
-            variation = sd_val / (max(abs(mean_val), 1e-6)) # avoid div by zero
+            variation = sd_val / (max(abs(mean_val), 1e-6))
         )
-}
-
-# Prepare numeric summary for plotting
-num_plot_df <- num_summary %>%
-    mutate(
-        value_type = "numeric",
-        display = cat, # use discretized z-score category for fill
-        fill_legend = "Mean vs\nOverall",
-        alpha_val = 1 - pmin(variation, 0.7)
-    ) %>%
-    select(cluster, variable, display, value_type, fill_legend, alpha_val)
-
-# Prepare categorical summary for plotting
-cat_plot_df <- cat_summary %>%
-    mutate(
-        value_type = "categorical",
-        display = value, # use most frequent value for fill
-        fill_legend = "Most Frequent",
-        alpha_val = 1 - pmin(variation, 0.7)
-    ) %>%
-    select(cluster, variable, display, value_type, fill_legend, alpha_val)
-
-# Prepare TC_Path_minus_TC_AI summary for plotting
-tc_path_plot_df <- NULL
-if (!is.null(tc_path_summary)) {
+    
+    # Prepare plot data
+    num_plot_df <- num_summary %>%
+        mutate(
+            value_type = "numeric",
+            display = cat,
+            fill_legend = "Mean vs\nOverall",
+            alpha_val = 1 - pmin(variation, 0.7)
+        ) %>%
+        select(cluster, variable, display, value_type, fill_legend, alpha_val)
+    
+    cat_plot_df <- cat_summary %>%
+        mutate(
+            value_type = "categorical",
+            display = value,
+            fill_legend = "Most Frequent",
+            alpha_val = 1 - pmin(variation, 0.7)
+        ) %>%
+        select(cluster, variable, display, value_type, fill_legend, alpha_val)
+    
     tc_path_plot_df <- tc_path_summary %>%
         mutate(
             variable = "TC_Path_minus_TC_AI",
@@ -508,125 +541,507 @@ if (!is.null(tc_path_summary)) {
             alpha_val = 1 - pmin(variation, 0.7)
         ) %>%
         select(cluster, display, mean_val, variable, value_type, fill_legend, alpha_val)
-
-    # Ensure cluster is a factor
+    
     if (!is.factor(tc_path_plot_df$cluster)) {
         tc_path_plot_df$cluster <- factor(tc_path_plot_df$cluster)
     }
+    
+    heatmap_df <- bind_rows(num_plot_df, cat_plot_df, tc_path_plot_df)
+    
+    heatmap_df$variable <- factor(
+        heatmap_df$variable,
+        levels = unique(c(num_summary$variable, cat_summary$variable, response_var))
+    )
+    
+    # Create heatmap
+    p <- ggplot(heatmap_df, aes(x = factor(cluster), y = variable)) +
+        geom_tile(
+            data = filter(heatmap_df, value_type == "numeric") %>% 
+                mutate(display = factor(display, levels = c("--", "-", "=", "+", "++"))),
+            aes(fill = display, alpha = alpha_val),
+            color = "white", show.legend = TRUE
+        ) +
+        scale_fill_manual(
+            name = NULL,
+            values = c("#b2182b", "#ef8a62", "#f7f7f7", "#67a9cf", "#2166ac"),
+            drop = FALSE,
+            guide = guide_legend(order = 1, override.aes = list(alpha = 1))
+        ) +
+        guides(fill = guide_legend(override.aes = list(alpha = 1), title = NULL),
+               alpha = "none") +
+        scale_alpha(range = c(0.8, 1), guide = "none") +
+        ggnewscale::new_scale_fill() +
+        geom_tile(
+            data = subset(heatmap_df, value_type == "categorical") %>% 
+                mutate(display = factor(display, levels = c("No", "Yes", "Absent", "Minimal", "Moderate", "Extensive"))),
+            aes(fill = display, alpha = alpha_val),
+            color = "white"
+        ) +
+        scale_fill_manual(
+            name = NULL,
+            values = (function() {
+                pal <- grDevices::colorRampPalette(c("#b2182b", "#2166ac"))(4)
+                c(
+                    "No" = pal[1],
+                    "Yes" = pal[4],
+                    "Absent" = pal[1],
+                    "Minimal" = pal[2],
+                    "Moderate" = pal[3],
+                    "Extensive" = pal[4]
+                )
+            })(),
+            guide = guide_legend(order = 2),
+            na.value = "grey90",
+            drop = FALSE
+        ) +
+        scale_alpha(range = c(0.8, 1), guide = "none") +
+        ggnewscale::new_scale_fill() +
+        geom_tile(
+            data = subset(heatmap_df, value_type == "TC_Path_minus_TC_AI") %>% 
+                mutate(variable = "TCC Path-AI Discrepancy"),
+            aes(fill = mean_val, alpha = alpha_val),
+            color = "white"
+        ) +
+        scale_fill_gradient2(
+            name = NULL,
+            low = "#b2182b",
+            mid = "#f7f7f7",
+            high = "#2166ac",
+            midpoint = 0,
+            na.value = "grey90"
+        ) +
+        scale_alpha(range = c(0.8, 1), guide = "none") +
+        labs(title = "Cluster-wise summary of model variables",
+             x = "Cluster", y = "Variable") +
+        scale_y_discrete(labels = function(x) {
+            sapply(x, function(lbl) {
+                pretty <- get_pretty_name(lbl)
+                chars <- unlist(strsplit(pretty, ""))
+                out <- ""
+                count <- 0
+                for (i in seq_along(chars)) {
+                    out <- paste0(out, chars[i])
+                    count <- count + 1
+                    if (count >= 7 && chars[i] == " ") {
+                        out <- paste0(out, "\n")
+                        count <- 0
+                    }
+                }
+                out
+            })
+        }) +
+        theme_minimal(base_size = 14) +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            strip.placement = "outside",
+            strip.text.y.left = element_text(angle = 0, hjust = 0),
+            panel.spacing.y = unit(0.5, "lines"),
+            legend.position = "bottom"
+        ) +
+        coord_flip() +
+        ylab(NULL)
+    
+    ggsave(file.path(output_dir, paste0(response_var, "_cluster_variable_heatmap.png")), 
+           width = 18, height = 6)
 }
 
-# Combine all for heatmap
-heatmap_df <- bind_rows(num_plot_df, cat_plot_df, tc_path_plot_df)
+#' Calculate cluster separation metric for TCC discrepancy
+#' @param df_all Data frame with cluster assignments and TCC discrepancy
+#' @param response_var Response variable name
+#' @return List with separation metrics
+calculate_cluster_separation <- function(df_all, response_var) {
+    if (is.null(df_all) || !"cluster" %in% names(df_all)) {
+        return(list(f_ratio = NA, between_var = NA, within_var = NA, n_clusters = NA))
+    }
+    
+    # Calculate overall mean and variance
+    overall_mean <- mean(df_all[[response_var]], na.rm = TRUE)
+    total_var <- var(df_all[[response_var]], na.rm = TRUE)
+    
+    # Calculate between-cluster and within-cluster variance
+    cluster_stats <- df_all %>%
+        group_by(cluster) %>%
+        summarise(
+            cluster_mean = mean(.data[[response_var]], na.rm = TRUE),
+            cluster_var = var(.data[[response_var]], na.rm = TRUE),
+            n = n(),
+            .groups = "drop"
+        )
+    
+    # Between-cluster variance (weighted by cluster size)
+    between_var <- sum(cluster_stats$n * (cluster_stats$cluster_mean - overall_mean)^2) / 
+                   sum(cluster_stats$n)
+    
+    # Within-cluster variance (weighted average)
+    within_var <- sum(cluster_stats$n * cluster_stats$cluster_var, na.rm = TRUE) / 
+                  sum(cluster_stats$n)
+    
+    # F-ratio (higher is better separation)
+    f_ratio <- between_var / (within_var + 1e-10)
+    
+    # Number of non-noise clusters
+    n_clusters <- sum(cluster_stats$cluster != 0)
+    
+    return(list(
+        f_ratio = f_ratio,
+        between_var = between_var,
+        within_var = within_var,
+        total_var = total_var,
+        n_clusters = n_clusters,
+        cluster_means = cluster_stats$cluster_mean,
+        cluster_sizes = cluster_stats$n
+    ))
+}
 
-# Order variables: numeric first, then categorical, then TC_Path_minus_TC_AI, or keep original order
-heatmap_df$variable <- factor(
-    heatmap_df$variable,
-    levels = unique(c(num_summary$variable, cat_summary$variable, response_var))
+#' Find best clustering result from grid search
+#' @param grid_results Results from run_clustering_grid_search
+#' @param response_var Response variable name
+#' @return Data frame with ranked results and best result details
+find_best_clustering <- function(grid_results, response_var) {
+    message("Evaluating ", length(grid_results$results), " clustering results...")
+    
+    # Calculate separation metrics for each result
+    separation_metrics <- lapply(seq_along(grid_results$results), function(i) {
+        result <- grid_results$results[[i]]
+        
+        if ("error" %in% names(result) || is.null(result$df_all)) {
+            return(tibble(
+                index = i,
+                f_ratio = NA,
+                between_var = NA,
+                within_var = NA,
+                n_clusters = NA,
+                has_error = TRUE
+            ))
+        }
+        
+        metrics <- calculate_cluster_separation(result$df_all, response_var)
+        
+        tibble(
+            index = i,
+            f_ratio = metrics$f_ratio,
+            between_var = metrics$between_var,
+            within_var = metrics$within_var,
+            total_var = metrics$total_var,
+            n_clusters = metrics$n_clusters,
+            has_error = FALSE
+        )
+    })
+    
+    # Combine with parameters
+    ranking <- bind_rows(separation_metrics) %>%
+        bind_cols(grid_results$parameters) %>%
+        arrange(desc(f_ratio))
+    
+    # Get best result
+    best_idx <- ranking$index[1]
+    best_result <- grid_results$results[[best_idx]]
+    best_params <- grid_results$parameters[best_idx, ]
+    
+    message("\n========================================")
+    message("BEST CLUSTERING RESULT:")
+    message("Index: ", best_idx)
+    message("Parameters: eps=", best_params$eps, 
+            ", minPts=", best_params$minPts,
+            ", n_neighbors=", best_params$n_neighbors,
+            ", min_dist=", best_params$min_dist)
+    message("F-ratio: ", round(ranking$f_ratio[1], 3))
+    message("Number of clusters: ", ranking$n_clusters[1])
+    message("Output directory: ", best_result$output_dir)
+    message("========================================\n")
+    
+    # Print top 5 results
+    message("Top 5 parameter combinations:")
+    print(ranking %>% 
+          select(index, eps, minPts, n_neighbors, min_dist, f_ratio, n_clusters) %>%
+          head(5))
+    
+    return(list(
+        ranking = ranking,
+        best_result = best_result,
+        best_index = best_idx,
+        best_params = best_params
+    ))
+}
+
+# ---- Main Workflow Function ----
+
+#' Main clustering analysis workflow
+#' @param response_var Response variable name
+#' @param data_df Original data frame
+#' @param data_df_renamed Data frame with renamed variables
+#' @param model_list List containing models (e.g., classic_no_forced_interactions)
+#' @param output_base_dir Base output directory
+#' @param eps DBSCAN epsilon parameter
+#' @param minPts DBSCAN minimum points parameter (default: 2 * number of UMAP dimensions)
+#' @param n_neighbors UMAP n_neighbors parameter
+#' @param min_dist UMAP min_dist parameter
+#' @param seed Random seed
+run_clustering_analysis <- function(response_var, 
+                                   data_df, 
+                                   data_df_renamed, 
+                                   model_list,
+                                   output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+                                   eps = 0.6,
+                                   minPts = NULL,
+                                   n_neighbors = 15,
+                                   min_dist = 0.1,
+                                   seed = 123) {
+    
+    # Create parameter-specific output directory
+    param_dir <- sprintf("%s_eps%.2f_minPts%d_nn%d_md%.2f", 
+                        response_var, eps, 
+                        ifelse(is.null(minPts), 4, minPts), 
+                        n_neighbors, min_dist)
+    output_dir <- file.path(output_base_dir, param_dir)
+    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    message("Starting clustering analysis for: ", response_var)
+    message("Parameters: eps=", eps, ", minPts=", ifelse(is.null(minPts), "auto", minPts), 
+            ", n_neighbors=", n_neighbors, ", min_dist=", min_dist)
+    message("Output directory: ", output_dir)
+    
+    # 1. Prepare model variables
+    message("Step 1: Preparing model variables...")
+    X <- prepare_model_variables(response_var, data_df_renamed, model_list)
+    
+    # 2. UMAP transformation
+    message("Step 2: Performing UMAP transformation...")
+    umap_df <- perform_umap(X, n_neighbors = n_neighbors, min_dist = min_dist, seed = seed)
+    plot_umap_embedding(umap_df, output_dir, response_var)
+    
+    # 3. DBSCAN clustering
+    message("Step 3: Performing DBSCAN clustering...")
+    db <- perform_dbscan_clustering(umap_df, eps = eps, minPts = minPts, output_dir = output_dir)
+    
+    # 4. Visualize clusters
+    message("Step 4: Visualizing clusters...")
+    umap_df <- plot_dbscan_clusters(umap_df, db$cluster, output_dir, response_var)
+    
+    # 5. Compute cluster statistics
+    message("Step 5: Computing cluster statistics...")
+    cluster_stats <- compute_cluster_statistics(db$cluster, response_var, 
+                                                data_df, data_df_renamed, model_list)
+    df_all <- cluster_stats$df_all
+    cluster_counts <- cluster_stats$cluster_counts
+    
+    # 6. Plot cluster boxplots
+    message("Step 6: Creating cluster boxplots...")
+    df_all <- plot_cluster_boxplots(df_all, cluster_counts, response_var, output_dir)
+    
+    # 7. Export extreme discrepancies
+    message("Step 7: Exporting extreme discrepancy counts...")
+    export_extreme_discrepancies(df_all, response_var, output_dir)
+    
+    # 8. Analyze term contributions
+    message("Step 8: Analyzing term contributions...")
+    analyze_term_contributions(df_all, response_var, model_list, output_dir)
+    
+    # 9. Plot variable distributions
+    message("Step 9: Plotting variable distributions...")
+    plot_variable_distributions(data_df_renamed, db$cluster, response_var, 
+                                model_list, X, output_dir)
+    
+    # 10. Create cluster heatmap
+    message("Step 10: Creating cluster summary heatmap...")
+    create_cluster_heatmap(data_df_renamed, db$cluster, df_all, response_var, 
+                          model_list, X, output_dir)
+    
+    message("Clustering analysis complete!")
+    
+    return(list(
+        clusters = db$cluster,
+        df_all = df_all,
+        cluster_counts = cluster_counts,
+        umap_df = umap_df,
+        parameters = list(eps = eps, minPts = minPts, n_neighbors = n_neighbors, min_dist = min_dist),
+        output_dir = output_dir
+    ))
+}
+
+#' Run clustering analysis over parameter grid
+#' @param response_var Response variable name
+#' @param data_df Original data frame
+#' @param data_df_renamed Data frame with renamed variables
+#' @param model_list List containing models
+#' @param output_base_dir Base output directory
+#' @param eps_values Vector of epsilon values to try
+#' @param minPts_values Vector of minPts values to try (NULL for auto)
+#' @param n_neighbors_values Vector of n_neighbors values to try
+#' @param min_dist_values Vector of min_dist values to try
+#' @param seed Random seed
+#' @param n_cores Number of cores to use (default: detectCores() - 1)
+run_clustering_grid_search <- function(response_var,
+                                      data_df,
+                                      data_df_renamed,
+                                      model_list,
+                                      output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+                                      eps_values = c(0.5, 0.6, 0.7),
+                                      minPts_values = c(5, 10, 15),
+                                      n_neighbors_values = c(10, 15, 20),
+                                      min_dist_values = c(0.05, 0.1, 0.2),
+                                      seed = 123,
+                                      n_cores = NULL) {
+    
+    # Create parameter grid
+    param_grid <- expand.grid(
+        eps = eps_values,
+        minPts = minPts_values,
+        n_neighbors = n_neighbors_values,
+        min_dist = min_dist_values,
+        stringsAsFactors = FALSE
+    )
+    
+    # Determine number of cores
+    if (is.null(n_cores)) {
+        n_cores <- max(1, detectCores() - 1)
+    }
+    n_cores <- min(n_cores, nrow(param_grid))
+    
+    message("Running clustering analysis over ", nrow(param_grid), " parameter combinations...")
+    message("Using ", n_cores, " cores for parallel processing")
+    
+    # Setup parallel backend
+    cl <- makeCluster(n_cores)
+    registerDoParallel(cl)
+    
+    # Export necessary objects and functions to cluster
+    clusterExport(cl, c("response_var", "data_df", "data_df_renamed", "model_list", 
+                       "output_base_dir", "seed",
+                       "run_clustering_analysis", "prepare_model_variables",
+                       "perform_umap", "plot_umap_embedding", "perform_dbscan_clustering",
+                       "plot_dbscan_clusters", "compute_cluster_statistics",
+                       "plot_cluster_boxplots", "export_extreme_discrepancies",
+                       "analyze_term_contributions", "plot_variable_distributions",
+                       "create_cluster_heatmap", "get_pretty_name", "pretty_names"),
+                 envir = environment())
+    
+    # Load required packages on each worker
+    clusterEvalQ(cl, {
+        library(dbscan)
+        library(ggplot2)
+        library(viridis)
+        library(factoextra)
+        library(dplyr)
+        library(uwot)
+        library(tidyr)
+        library(readr)
+        library(stringr)
+        library(ggnewscale)
+    })
+    
+    # Run parallel grid search
+    all_results <- tryCatch({
+        foreach(i = 1:nrow(param_grid), 
+                .packages = c("dplyr", "dbscan", "uwot", "ggplot2"),
+                .errorhandling = "pass") %dopar% {
+            
+            params <- param_grid[i, ]
+            
+            tryCatch({
+                result <- run_clustering_analysis(
+                    response_var = response_var,
+                    data_df = data_df,
+                    data_df_renamed = data_df_renamed,
+                    model_list = model_list,
+                    output_base_dir = output_base_dir,
+                    eps = params$eps,
+                    minPts = params$minPts,
+                    n_neighbors = params$n_neighbors,
+                    min_dist = params$min_dist,
+                    seed = seed
+                )
+                result
+            }, error = function(e) {
+                list(error = e$message, parameters = params)
+            })
+        }
+    }, finally = {
+        stopCluster(cl)
+    })
+    
+    # Create summary
+    summary_df <- param_grid %>%
+        mutate(
+            n_clusters = sapply(all_results, function(r) {
+                if ("clusters" %in% names(r)) length(unique(r$clusters)) else NA
+            }),
+            has_error = sapply(all_results, function(r) "error" %in% names(r)),
+            output_dir = sapply(all_results, function(r) {
+                if ("output_dir" %in% names(r)) r$output_dir else NA_character_
+            })
+        )
+    
+    write_csv(summary_df, file.path(output_base_dir, paste0(response_var, "_parameter_grid_summary.csv")))
+    
+    message("\n========================================")
+    message("Grid search complete!")
+    message("Summary saved to: ", file.path(output_base_dir, paste0(response_var, "_parameter_grid_summary.csv")))
+    message("========================================")
+    
+    return(list(
+        results = all_results,
+        parameters = param_grid,
+        summary = summary_df
+    ))
+}
+
+# ---- Execute Analysis ----
+
+response_var <- "TCC_Patho_minus_TCC_AI"
+
+
+
+# Grid search
+# grid_results <- run_clustering_grid_search(
+#     response_var = response_var,
+#     data_df = data_df,
+#     data_df_renamed = data_df_renamed,
+#     model_list = classic_no_forced_interactions,
+#     output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+#     eps_values = c(0.2,0.3,0.4, 0.5, 0.6, 0.7, 0.8),
+#     minPts_values = nrow(data_df_renamed)*0.05,
+#     n_neighbors_values = c(5,10,15,20),
+#     min_dist_values = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5),
+#     seed = 123
+# )
+
+
+
+grid_results <- run_clustering_grid_search(
+    response_var = response_var,
+    data_df = data_df,
+    data_df_renamed = data_df_renamed,
+    model_list = classic_no_forced_interactions,
+    output_base_dir = "discrepancies/2025-10-Data-Version/clustering",
+    eps_values = c(0.6),
+    minPts_values = nrow(data_df_renamed) * 0.05, # arbitrary but basically saying "dont give me super tiny clusters" and is roughly == dimensionality pre-UMAP
+    n_neighbors_values = c(10),
+    min_dist_values = c(0.1),
+    seed = 123
 )
 
-# Plot: use fill for display, facet for value_type, and alpha for variation
-library(ggplot2)
-library(ggnewscale)
+saveRDS(grid_results, 
+        file = file.path("discrepancies/2025-10-Data-Version/clustering", 
+                         paste0(response_var, "_clustering_grid_results.rds")))
 
 
+names(grid_results)
 
-ggplot(heatmap_df, aes(x = factor(cluster), y = variable)) +
-    # First: fill for numeric variables
-    geom_tile(
-        data = filter(heatmap_df, value_type == "numeric") %>% mutate(
-            display = factor(display, levels = c("--", "-", "=", "+", "++"))
-        ),
-        aes(fill = display, alpha = alpha_val),
-        color = "white", show.legend = TRUE
-    ) +
-    scale_fill_manual(
-        name = NULL,
-        values = c(
-            "#b2182b",
-            "#ef8a62",
-            "#f7f7f7",
-            "#67a9cf",
-            "#2166ac"
-        ),
-        # breaks = c("++", "+", "=", "-", "--"),
-        drop = FALSE, # ensures all breaks appear in legend even if not in data
-        guide = guide_legend(order = 1, override.aes = list(alpha = 1))
-    ) +
-    guides(
-        fill = guide_legend(
-            override.aes = list(alpha = 1),
-            title = NULL
-        ),
-        alpha = "none"
-    ) +
-    scale_alpha(range = c(0.75, 1), guide = "none") +
-    ggnewscale::new_scale_fill() +
-    # Second: fill for categorical variables (Yes/No)
-    geom_tile(
-        data = subset(heatmap_df, value_type == "categorical") %>% mutate(
-            display = factor(display, levels = c("No", "Yes"))
-        ),
-        aes(fill = display, alpha = alpha_val),
-        color = "white"
-    ) +
-    scale_fill_manual(
-        name = NULL,
-        values = c(
-            "Yes" = "#2166ac",
-            "No" = "#b2182b"
-        ),
-        # breaks = c("Yes", "No"),
-        guide = guide_legend(order = 2),
-        na.value = "grey90",
-        drop = FALSE
-    ) +
-    ggnewscale::new_scale_fill() +
-    # Third: fill for TC_Path_minus_TC_AI (numeric mean_val)
-    geom_tile(
-        data = subset(heatmap_df, value_type == "TC_Path_minus_TC_AI") %>% mutate(variable = "TCC Path-AI Discrepancy"),
-        aes(fill = mean_val, alpha = alpha_val),
-        color = "white"
-    ) +
-    scale_fill_gradient2(
-        name = NULL,
-        low = "#b2182b",
-        mid = "#f7f7f7",
-        high = "#2166ac",
-        midpoint = 0,
-        na.value = "grey90"
-    ) +
-    labs(
-        title = "Cluster-wise summary of model variables",
-        x = "Cluster",
-        y = "Variable"
-    ) +
-    scale_y_discrete(labels = function(x) {
-        sapply(x, function(lbl) {
-            pretty <- get_pretty_name(lbl)
-            # Insert a newline after every 7 characters, at the next space
-            chars <- unlist(strsplit(pretty, ""))
-            out <- ""
-            count <- 0
-            for (i in seq_along(chars)) {
-                out <- paste0(out, chars[i])
-                count <- count + 1
-                if (count >= 7 && chars[i] == " ") {
-                    out <- paste0(out, "\n")
-                    count <- 0
-                }
-            }
-            out
-        })
-    }) +
-    theme_minimal(base_size = 14) +
-    theme(
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        strip.placement = "outside",
-        strip.text.y.left = element_text(angle = 0, hjust = 0),
-        panel.spacing.y = unit(0.5, "lines")
-    ) +
-    coord_flip() +
-    theme(legend.position = "bottom") +
-    ylab(NULL)
+# Find best clustering result
+best_clustering <- find_best_clustering(grid_results, response_var)
 
-ggsave("discrepancies/2025-10-Data-Version/clustering/cluster_variable_heatmap.png", width = 6 * 3, height = 6)
+# Save ranking
+write_csv(
+    best_clustering$ranking,
+    file.path(
+        "discrepancies/2025-10-Data-Version/clustering",
+        paste0(response_var, "_clustering_ranking.csv")
+    )
+)
+
+# cor is high
+cor(best_clustering$ranking$f_ratio,best_clustering$ranking$n_clusters)
+
+
+# best cluster at the moment S:\People\JanN\PathAI_analyses\discrepancies\2025-10-Data-Version\clustering\TCC_Patho_minus_TCC_AI_eps0.60_minPts15_nn10_md0.10
