@@ -63,7 +63,6 @@ if (is.null(model_pre_done)) {
         set.seed(seed)
         seeds <- sample.int(.Machine$integer.max, reps)
         ncores <- min(reps, parallel::detectCores())
-        library(doParallel)
         cl <- makeCluster(ncores)
         registerDoParallel(cl)
         fits <- foreach(
@@ -93,7 +92,7 @@ if (is.null(model_pre_done)) {
         aic_vals <- sapply(fits, function(xx) AIC(xx[[1]]))
 
         # 2. plot the distribution of AICs
-        library(ggplot2)
+        
         p_aic <- ggplot(data.frame(AIC = aic_vals), aes(x = AIC)) +
             geom_histogram(
                 binwidth = diff(range(aic_vals)) / 30,
@@ -119,8 +118,32 @@ if (is.null(model_pre_done)) {
     #    forward_model <- update(forward_model, . ~ . + Sample.type, data = model_data)
     # }
 
-    plot(AIC ~ step, steps)
-}
+#     if (reps > 1 && exists("fits")) {
+#         # Combine all steps data from fits[[]][[2]] into one tibble
+#         steps_combined <- bind_rows(
+#             lapply(seq_along(fits), function(i) {
+#                 fits[[i]][[2]] %>%
+#                     mutate(fit_index = i)
+#             })
+#         )
+        
+#         # Plot AIC ~ step faceted by fit_index
+#         p_steps <- ggplot(steps_combined, aes(x = step, y = AIC)) +
+#             geom_line() +
+#             geom_point(size = 0.5) +
+#             facet_wrap(~ fit_index, scales = "free_y") +
+#             labs(
+#                 title = "AIC progression across stepwise selection",
+#                 x = "Step",
+#                 y = "AIC"
+#             ) +
+#             theme_bw()()
+       
+#     } else {
+#         p_steps <- plot(AIC ~ step, steps)
+#     }
+#
+ }
 
 if(!is.null(model_pre_done)) {
     forward_model <- model_pre_done
@@ -339,8 +362,7 @@ pred_plots[[x1_var]] <-
 #             error_msg   = character()
 #         )
 # set.seed(123)
-# library(foreach)
-# library(doParallel)
+
 # # use up to 16 cores
 # n_cores <- min(16, parallel::detectCores())
 # cl <- makeCluster(n_cores)
@@ -503,7 +525,6 @@ return(list(
     steps = steps,
     importance_summary = importance_summary,
     fits = if (exists("fits")) fits else NULL,
-    best_idx = if (exists("best_idx")) best_idx else NULL
-))
+    best_idx = if (exists("best_idx")) best_idx else NULL))
     }
 }

@@ -160,7 +160,6 @@ plot_model_combinations <- function(boot_forward_list, response_var, data_df, n_
         }, USE.NAMES = FALSE) %>% unique()
     }
     
-    library(parallel)
     selected_counts_cleaned <- mclapply(results$selected_counts, function(vars) {
         if (is.null(vars)) {
             return(NULL)
@@ -191,9 +190,7 @@ plot_model_combinations <- function(boot_forward_list, response_var, data_df, n_
     rownames(combo_matrix) <- all_variables
     colnames(combo_matrix) <- paste0("Model ", seq_along(top_combos), " (", as.integer(top_combo_counts), "x)")
     
-    library(tidyr)
-    library(dplyr)
-    library(ggplot2)
+    
     
     combo_df <- as.data.frame(combo_matrix)
     combo_df$Variable <- rownames(combo_matrix)
