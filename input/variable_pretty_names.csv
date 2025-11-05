@@ -1,0 +1,182 @@
+variable,pretty_name
+TC_Path_minus_TC_AI,TC Path Minus TC AI
+Sample.type,(Path) Sample Type
+WSI.Quality_all,(Path) WSI Quality
+WSI.Quality_all_binary,(Path) WSI Quality [binary]
+Specimen.Quality_all,(Path) Specimen Quality
+Specimen.Quality_all_binary,(Path) Specimen Quality [binary]
+Pen.Marks.on.Tissue_all,(Path) Pen Marks on Tissue
+Microtomy.artefacts...Folds.Tissue.Breacks._all,(Path) Microtomy Artifacts
+Microtomy.artefacts...Folds.Tissue.Breacks._all_binary,(Path) Microtomy Artifacts [binary]
+Thick.Specimen_all,(Path) Thick Specimen
+Cautery.Crush.artefact.average_all,(Path) Cautery Crush Artifact
+PATH.evaluable.cancer.area.marked.as.artifacty.by.AI_all,(Path) Cancer Area Marked Artifact by AI
+Acute.infflammation_all,(Path) Acute Inflammation
+Hemorrhage.Resection.Biopsy._Extensive.Blood.Content..Cytology.,(Path) Hemorrhage / Ext. Blood Content
+Hemorrhage.Resection.Biopsy._Extensive.Blood.Content..Cytology._binary,(Path) Hemorrhage / Ext. Blood Content [binary]
+Margin.Ink_Resection,(Path) Margin Ink
+Immune.aggregates_Resection.Biopsy,(Path) Immune Aggregates 
+Tumor.Infiltrating.lymphocytes_Resection.Biopsy,(Path) Tumor Infiltrating Lymphocytes 
+Tumor.Infiltrating.lymphocytes_Resection.Biopsy_binary,(Path) Tumor Infiltrating Lymphocytes [binary]
+High.content.of.intratumoral.immune.infiltrates_Resection.Biopsy,(Path) High Intratumoral Immune Infiltrates
+Highly.cellular.stroma_Resection.Biopsy,(Path) Highly Cellular Stroma 
+Tetriary.Lymphoid.Structures_Resection.Biopsy,(Path) Tertiary Lymphoid Structures 
+Tumor.Stroma.Content_Resection.Biopsy,(Path) Tumor Stroma Content 
+Necrosis_Resection.Biopsy,(Path) Necrosis 
+Necrosis_Resection.Biopsy_binary,(Path) Necrosis [binary]
+N.Different.tissue.pieces.per.slide_Resection.Biopsy_numeric,(Path) No. of Tissue Pieces per Slide
+N.Different.tissue.pieces.per.slide_Resection.Biopsy_fragmented_yes_no,(Path) Tissue Pieces per Slide Fragmented
+Cancer.content.N.specimens_Resection.Biopsy_numeric,(Path) No. of Specimens with Cancer Content
+Cancer.content.N.specimens_Resection.Biopsy_fragmented_yes_no,(Path) Specimens with Cancer Content Fragmented
+Cautery.Crush.artefact.average_all_yes_no,(Path) Cautery Crush Artifact
+Tissue,Tissue
+SpecimenSite,Specimen Site
+PossiblyUltraLowTC,(Control) Capped at 20 by Pathologist
+Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tissue...mm.2,(AI) Total Tissue Area [mm²]
+Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tumor...mm.2,(AI) Total Tumor Area [mm²]
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.cancer...mm.2,(AI) Total Cancer Area [mm²]
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.stroma...mm.2,(AI) Total Stroma Area [mm²]
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.necrosis...mm.2,(AI) Total Necrosis Area [mm²]
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.tissue,(AI) No. of Cells in Tissue
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cancer.cells.in.tumor,(AI) No. of Cancer Cells in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.fibroblasts.in.tumor,(AI) No. of Fibroblasts in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.macrophages.in.tumor,(AI) No. of Macrophages in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.plasma.cells.in.tumor,(AI) No. of Plasma Cells in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.lymphocytes.in.tumor,(AI) No. of Lymphocytes in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.neutrophils.in.tumor,(AI) No. of Neutrophils in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.endothelial.cells.in.tumor,(AI) No. of Endothelial Cells in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.other.cells.in.tumor,(AI) No. of Other Cells in Tumor
+Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue,(AI) No. of Cells in Normal Tissue
+TumorDetect.v1.2.0...Supporting.Result...Area.of.Necrosis...mm.2,(AI) Necrosis Area [mm²]
+Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Scanning....,(AI) Tissue with Scanning Artifacts
+Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Coverslipping....,(AI) Tissue with Coverslipping Artifacts
+Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Sectioning....,(AI) Tissue with Sectioning Artifacts
+Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Grossing.Marker....,(AI) Tissue with Grossing Marker Artifacts
+Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Other....,(AI) Tissue with Other Artifacts
+Artifact.Detect.v3.0.0...Supporting.Result...Area.of.Evaluable.Tissue...mm.2,(AI) Evaluable Tissue Area [mm²]
+Artifact.Detect.v3.0.0...Supporting.Result...Area.of.Total.Tissue...mm.2,(AI) Total Tissue Area [mm²]
+log_Cautery.Crush.artefact.average_all,(Path) Cautery Crush Artifact [log]
+sq_Cautery.Crush.artefact.average_all,(Path) Cautery Crush Artifact [sq]
+log_PATH.evaluable.cancer.area.marked.as.artifacty.by.AI_all,(Path) Evaluable Cancer Area Marked Artifact by AI [log]
+sq_PATH.evaluable.cancer.area.marked.as.artifacty.by.AI_all,(Path) Evaluable Cancer Area Marked Artifact by AI [sq]
+log_N.Different.tissue.pieces.per.slide_Resection.Biopsy_numeric,(Path) No. of Tissue Pieces per Slide (Resection/Biopsy) [log]
+sq_N.Different.tissue.pieces.per.slide_Resection.Biopsy_numeric,(Path) No. of Tissue Pieces per Slide (Resection/Biopsy) [sq]
+log_Cancer.content.N.specimens_Resection.Biopsy_numeric,(Path) No. of Specimens with Cancer Content (Resection/Biopsy) [log]
+sq_Cancer.content.N.specimens_Resection.Biopsy_numeric,(Path) No. of Specimens with Cancer Content (Resection/Biopsy) [sq]
+log_PossiblyUltraLowTC,(Control) Capped at 20 by Pathologist [log]
+sq_PossiblyUltraLowTC,(Control) Capped at 20 by Pathologist [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tissue...mm.2,(AI) Total Tissue Area [log mm²]
+sq_Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tissue...mm.2,(AI) Total Tissue Area [sq mm²]
+log_Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tumor...mm.2,(AI) Total Tumor Area [log mm²]
+sq_Foundation.Model...TME.v1.0.1.alpha...Key.Result...Total.area.of.tumor...mm.2,(AI) Total Tumor Area [sq mm²]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.cancer...mm.2,(AI) Total Cancer Area [log mm²]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.cancer...mm.2,(AI) Total Cancer Area [sq mm²]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.stroma...mm.2,(AI) Total Stroma Area [log mm²]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.stroma...mm.2,(AI) Total Stroma Area [sq mm²]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.necrosis...mm.2,(AI) Total Necrosis Area [log mm²]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.area.of.necrosis...mm.2,(AI) Total Necrosis Area [sq mm²]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.tissue,(AI) No. of Cells in Tissue [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.tissue,(AI) No. of Cells in Tissue [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cancer.cells.in.tumor,(AI) No. of Cancer Cells in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cancer.cells.in.tumor,(AI) No. of Cancer Cells in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.fibroblasts.in.tumor,(AI) No. of Fibroblasts in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.fibroblasts.in.tumor,(AI) No. of Fibroblasts in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.macrophages.in.tumor,(AI) No. of Macrophages in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.macrophages.in.tumor,(AI) No. of Macrophages in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.plasma.cells.in.tumor,(AI) No. of Plasma Cells in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.plasma.cells.in.tumor,(AI) No. of Plasma Cells in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.lymphocytes.in.tumor,(AI) No. of Lymphocytes in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.lymphocytes.in.tumor,(AI) No. of Lymphocytes in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.neutrophils.in.tumor,(AI) No. of Neutrophils in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.neutrophils.in.tumor,(AI) No. of Neutrophils in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.endothelial.cells.in.tumor,(AI) No. of Endothelial Cells in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.endothelial.cells.in.tumor,(AI) No. of Endothelial Cells in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.other.cells.in.tumor,(AI) No. of Other Cells in Tumor [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.other.cells.in.tumor,(AI) No. of Other Cells in Tumor [sq]
+log_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue,(AI) No. of Cells in Normal Tissue [log]
+sq_Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...Total.number.of.cells.in.normal.tissue,(AI) No. of Cells in Normal Tissue [sq]
+log_TumorDetect.v1.2.0...Supporting.Result...Area.of.Necrosis...mm.2,(AI) Necrosis Area [log mm²]
+sq_TumorDetect.v1.2.0...Supporting.Result...Area.of.Necrosis...mm.2,(AI) Necrosis Area [sq mm²]
+log_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Scanning....,(AI) Tissue with Scanning Artifacts [log]
+sq_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Scanning....,(AI) Tissue with Scanning Artifacts [sq]
+log_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Coverslipping....,(AI) Tissue with Coverslipping Artifacts [log]
+sq_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Coverslipping....,(AI) Tissue with Coverslipping Artifacts [sq]
+log_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Sectioning....,(AI) Tissue with Sectioning Artifacts [log]
+sq_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Sectioning....,(AI) Tissue with Sectioning Artifacts [sq]
+log_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Grossing.Marker....,(AI) Tissue with Grossing Marker Artifacts [log]
+sq_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Grossing.Marker....,(AI) Tissue with Grossing Marker Artifacts [sq]
+log_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Other....,(AI) Tissue with Other Artifacts [log]
+sq_Artifact.Detect.v3.0.0...Key.Result.....Tissue.with.artifacts.Other....,(AI) Tissue with Other Artifacts [sq]
+log_Artifact.Detect.v3.0.0...Supporting.Result...Area.of.Evaluable.Tissue...mm.2,(AI) Evaluable Tissue Area [log mm²]
+sq_Artifact.Detect.v3.0.0...Supporting.Result...Area.of.Evaluable.Tissue...mm.2,(AI) Evaluable Tissue Area [sq mm²]
+log_Artifact.Detect.v3.0.0...Supporting.Result...Area.of.Total.Tissue...mm.2,(AI) Total Tissue Area (Artifact Detect) [log mm²]
+sq_Artifact.Detect.v3.0.0...Supporting.Result...Area.of.Total.Tissue...mm.2,(AI) Total Tissue Area (Artifact Detect) [sq mm²]
+AI_artefact_fraction_measure, (AI) Artifacts [%]
+log_AI_artefact_fraction_measure, (AI) Artifacts [%] [log]
+sq_AI_artefact_fraction_measure, (AI) Artifacts [%] [sq]
+Sample type,Sample Type
+Cancer,Cancer
+Metastatic,Metastatic
+Path_WSI Quality,(Path) WSI Quality
+AI_scanning_artifacts_area_%,(AI) Scanning Artifacts [%]
+Path_Specimen Qualityl,(Path) Specimen Quality
+Path_Microtomy_ Artifacts,(Path) Microtomy Artifacts
+Path_Thick_Specimen,(Path) Thick Specimen
+Path_Cautery/Crush artifact_ average,(Path) Cautery/Crush Artifact [numeric]
+Path_Cautery/Crush artifact average_yes_no,(Path) Cautery/Crush Artifact [yes/no]
+Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed,(Path) Cancer Content in Tissue Specimens per Slide (Resection/Biopsy) Ratio
+Path_specimen_fragmentation,(Path) Specimen Fragmentation
+Path_evaluable_cancer_area_marked_as_artifact_by_AI,(Path) Evaluable Cancer Area Marked as Artifact by AI
+AI_total_cell_density_mm2,(AI) Total Cell Density
+AI_total_tumor_area_%,(AI) Tumor Area [%]
+AI_total_cancer_area_%,(AI) Cancer Area [%]
+Path_Hemorrhage,(Path) Hemorrhage
+Path_Necrosis,(Path) Necrosis
+Path_Tumor-Stroma Content,(Path) Tumor-Stroma Content
+Path_Acute infflammation,(Path) Acute Inflammation
+Path_Immune aggregates,(Path) Immune Aggregates
+Path_Tumor Infiltrating lymphocytes,(Path) Tumor Infiltrating Lymphocytes
+Path_High content of intratumoral immune infiltrates,(Path) High Content of Intratumoral Immune Infiltrates
+Path_Highly cellular stroma,(Path) Highly Cellular Stroma
+Path_Tetriary Lymphoid Structures,(Path) Tertiary Lymphoid Structures
+AI_cancer_area_%_per_tumor,(AI) Cancer Area per Tumor [%] 
+AI_stroma_%_per_tumor,(AI) Stroma per Tumor [%] 
+AI_total_cell_density_in_tumor_mm2,(AI) Total Cell Density in Tumor
+AI_cancer_cell_density_in_tumor_mm2,(AI) Cancer Cell Density in Tumor
+AI_lymphocyte_density_in_tumor_mm2,(AI) Lymphocyte Density in Tumor
+AI_immune_cell_density_in_tumor_mm2,(AI) Immune Cell Density in Tumor
+AI_fibroblast_density_in_tumor_mm2,(AI) Fibroblast Density in Tumor
+AI_non_immune_cell_density_in_tumor_mm2,(AI) Non-Immune Cell Density in Tumor
+AI_total_stroma_area_%,(AI) Stroma Area [%]
+AI_total_necrosis_area_%,(AI) Necrosis Area [%]
+AI_%_lymphocytes_in_tumor,(AI) Lymphocytes in Tumor [%]
+AI_%_of_fibroblasts_in_tumor,(AI) Fibroblasts in Tumor [%]
+AI_%_of_immune_cells_in_tumor,(AI) Immune Cells in Tumor [%]
+AI_%_of_non_immune_cells_in_tumor,(AI) Non-Immune Cells in Tumor [%]
+AI_density_of_cells_in_normal_tissue_mm2,(AI) Density of Cells in Normal Tissue
+Path_Margin Ink_Resection,(Path) Margin Ink (Resection)
+TCC_FMI_minus_TCC_AI,TCC FMI Minus TCC AI
+TCC_Patho_minus_TCC_FMI,TCC Patho Minus TCC FMI
+AI_total_stroma_area_.,(AI) Stroma Area [%]
+AI_total_necrosis_area_.,(AI) Necrosis Area [%]
+TCC_Patho_minus_TCC_AI,TCC_Patho_minus_TCC_AI
+TCC_Patho_minus_TCC_AI,TCC_Patho_minus_TCC_AI
+AI_cancer_area_._per_tumor,(AI) Cancer Area per Tumor [%] 
+AI_total_cancer_area_.,(AI) Cancer Area [%]
+Path_Acute.infflammation,(Path) Acute Inflammation
+Path_Cautery.Crush.artifact_.average,(Path) Cautery/Crush Artifact [numeric]
+AI_scanning_artifacts_area_.,(AI) Scanning Artifacts [%]
+Path_Tetriary.Lymphoid.Structures,(Path) Tertiary Lymphoid Structures
+TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
+TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
+TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
+TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
+TCC Path-AI Discrepancy,TCC Path-AI Discrepancy
+AI_total_tumor_area_.,AI_total_tumor_area_.
+AI_._of_fibroblasts_in_tumor,AI_._of_fibroblasts_in_tumor
+AI_._of_immune_cells_in_tumor,AI_._of_immune_cells_in_tumor
+Path_Tumor.Infiltrating.lymphocytes,Path_Tumor.Infiltrating.lymphocytes
+AI_total_tumor_area_.,AI_total_tumor_area_.
+AI_._of_fibroblasts_in_tumor,AI_._of_fibroblasts_in_tumor
+AI_._of_immune_cells_in_tumor,AI_._of_immune_cells_in_tumor
+Path_Tumor.Infiltrating.lymphocytes,Path_Tumor.Infiltrating.lymphocytes
