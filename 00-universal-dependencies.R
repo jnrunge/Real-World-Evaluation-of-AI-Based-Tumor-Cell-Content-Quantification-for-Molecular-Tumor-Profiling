@@ -17,9 +17,16 @@ library(uwot)
 library(ggnewscale)
 library(ggforce)
 library(parallel)
-library(here)
 
-project_dir <- here("discrepancies/2025-10-Data-Version")
+
+if(file.exists("00-universal-dependencies.R")) {
+    project_dir <- getwd()
+} else if(file.exists("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")) {
+    project_dir <- file.path(getwd(), "discrepancies/2025-10-Data-Version")
+} 
+
+
+print(paste0("Project directory is: ", project_dir))
 
 pretty_names <- read_csv(file.path(project_dir, "input/variable_pretty_names.csv"))
 # Helper function to clean variable names

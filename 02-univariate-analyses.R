@@ -1,11 +1,10 @@
-source(file.path(project_dir, "00-universal-dependencies.R"))
 # univariate test all variables
 
 
 # Helper to test one variable vs TC_Path_minus_TC_AI
 univariate_test <- function(df, var, outcome = "TCC_Patho_minus_TCC_AI") {
-    v <- df[[var]]
-    y <- df[[outcome]]
+    v <- df[[var]][!is.na(df[[var]])]
+    y <- df[[outcome]][!is.na(df[[var]])]
     res <- NULL
     if (is.numeric(v)) {
         # Spearman correlation
@@ -49,9 +48,11 @@ univariate_test <- function(df, var, outcome = "TCC_Patho_minus_TCC_AI") {
 # Run for all variables except the outcome itself
 all_vars <- setdiff(names(data_df_pre_scaling), response_vars)
 
+
+
 # Loop through each response variable
 for (response_var in response_vars) {
-    univ_results <- map_dfr(all_vars, ~ univariate_test(data_df_pre_scaling, .x, outcome = response_var))
+    univ_results <- map_dfr(all_vars, ~ univariate_test(data_df_pre_scaling_NAd_sampletypes, .x, outcome = response_var))
 
     # Remove duplicate numeric variables with same value and similar names (differing only by up to 4-letter prefix)
     univ_results <- univ_results %>%

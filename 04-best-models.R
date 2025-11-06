@@ -1,6 +1,4 @@
-source(file.path(project_dir, "01-load-data.R"))
 
-source(file.path(project_dir, "00-universal-dependencies.R"))
 
 pretty_names <- read_csv(file.path(project_dir, "input/variable_pretty_names.csv"))
 source(file.path(project_dir, "functions/best_models.R"))
@@ -21,7 +19,9 @@ if (file.exists(rds_file)) {
         
         classic_no_forced_interactions[[response_var]] <- perform_forward_selection(var_table %>% filter(type == "response" | !grepl("TCC", variable)), data_df, force_interaction = FALSE, steps = 5000, seed = 1, reps = 32)
     }
-    
+
+    dir.create(file.path(project_dir, "output/model_plots"), showWarnings = FALSE, recursive = TRUE)
+    dir.create(file.path(project_dir, "output/processed_data"), showWarnings = FALSE, recursive = TRUE)
     saveRDS(classic_no_forced_interactions, file = rds_file)
 
     # descrribe alternative models

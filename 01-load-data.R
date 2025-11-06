@@ -5,8 +5,36 @@ output_files_exist <- all(file.exists(
   file.path(project_dir, "output/processed_data/data_df.rds"),
   file.path(project_dir, "output/processed_data/data_df_renamed.rds"),
   file.path(project_dir, "output/processed_data/variables.rds"),
-  file.path(project_dir, "output/processed_data/data_df_complete.rds")
+  file.path(project_dir, "output/processed_data/data_df_complete.rds"),
+  file.path(project_dir, "output/processed_data/data_df_pre_scaling_NAd_sampletypes.rds")
 ))
+
+  var_desc <- (readxl::read_excel(file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), sheet = 2))
+
+
+get_relevant_categories <- function(var_name) {
+  if (var_name %in% c("Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed")) {
+    return(c("Biopsy", "Resection"))
+  }
+  if (get_interaction_or_not(var_name)) {
+    return(strsplit(var_desc %>% filter(`Independent Preanalytical Variables` == var_name) %>% pull(`Sample type relevance`), "/")[[1]] %>% str_trim())
+  } else {
+    return(FALSE)
+  }
+}
+
+ get_interaction_or_not <- function(var_name) {
+   if (var_name %in% c("Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed")) {
+     return(TRUE)
+   }
+   if (var_name %in% (var_desc[, 2] %>% pull())) {
+     return(!any(c(NA, "", "All") %in% (var_desc %>% filter(`Independent Preanalytical Variables` == var_name) %>% pull(`Sample type relevance`))))
+   } else {
+     return(FALSE)
+   }
+ }
+
+
 
 if (output_files_exist) {
   message("Output files already exist. Loading from saved RDS files...")
@@ -15,6 +43,7 @@ if (output_files_exist) {
   data_df_renamed <- readRDS(file.path(project_dir, "output/processed_data/data_df_renamed.rds"))
   data_df_complete <- readRDS(file.path(project_dir, "output/processed_data/data_df_complete.rds"))
   variables <- readRDS(file.path(project_dir, "output/processed_data/variables.rds"))
+  data_df_pre_scaling_NAd_sampletypes <- readRDS(file.path(project_dir, "output/processed_data/data_df_pre_scaling_NAd_sampletypes.rds"))
   message("Data loaded successfully.")
 } else {
   message("Output files not found. Running full data processing pipeline...")
@@ -102,19 +131,8 @@ if (output_files_exist) {
     stop(paste0("The following variables are missing from the data: ", paste0(missing_vars, collapse = ", ")))
   }
 
-  var_desc <- (readxl::read_excel(file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), sheet = 2))
 
-  get_interaction_or_not <- function(var_name) {
-    if (var_name %in% c("Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed")) {
-      return(TRUE)
-    }
-    if (var_name %in% (var_desc[, 2] %>% pull())) {
-      return(!any(c(NA, "", "All") %in% (var_desc %>% filter(`Independent Preanalytical Variables` == var_name) %>% pull(`Sample type relevance`))))
-    } else {
-      return(FALSE)
-    }
-  }
-
+ 
   
 
 
@@ -159,68 +177,7 @@ if (output_files_exist) {
       }))
   }
 
-  numeric_vars <- names(data_df)[sapply(data_df, is.numeric)]
-
-  ## use distributions to identify outliers
-
-  # 1. For each numeric variable, compute IQR bounds and collect outlier row‐indices
-  outliers <- map_dfr(numeric_vars, function(var) {
-    x <- data_df[[var]]
-    # skip too‐sparse or constant vectors
-    if (length(unique(na.omit(x))) < 10) {
-      return(NULL)
-    }
-    qnt <- quantile(x, c(0.05, 0.95), na.rm = TRUE)
-    iqr <- qnt[2] - qnt[1]
-    lb <- qnt[1] - 1 * iqr
-    ub <- qnt[2] + 1 * iqr
-    idx <- which(x < lb | x > ub)
-    if (length(idx) == 0) {
-      return(NULL)
-    }
-    tibble(
-      variable    = var,
-      row         = idx,
-      value       = x[idx],
-      lower_bound = lb,
-      upper_bound = ub
-    )
-  })
-
-
-
-  # 2. Summary: how many outliers per variable
-  outliers %>%
-    count(variable, name = "n_outliers") %>%
-    mutate(pct = n_outliers / nrow(data_df) * 100) %>%
-    arrange(desc(n_outliers)) %>%
-    print()
-
-  # 3. Optional: get the set of row‐numbers to drop (any variable)
-  outlier_rows <- unique(outliers$row)
-
-  # 4. Plot each variable with outliers highlighted
-  output_dir <- file.path(project_dir, "output/outliers/")
-  dir.create(output_dir, showWarnings = FALSE)
-  for (var in unique(outliers$variable)) {
-    df <- tibble(
-      row = seq_len(nrow(data_df)),
-      value = data_df[[var]]
-    )
-    df_out <- outliers %>% filter(variable == var)
-    p <- ggplot(df, aes(x = row, y = value)) +
-      geom_point(alpha = 0.6) +
-      geom_point(
-        data = df_out, aes(x = row, y = value),
-        colour = "red", size = 2
-      ) +
-      labs(
-        title = paste("Outliers in", var),
-        x = "Row index", y = "Value"
-      ) +
-      theme_bw()
-    ggsave(filename = paste0(output_dir, "outliers_", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 12, height = 4)
-  }
+  
 
   # order factors
 
@@ -258,16 +215,7 @@ if (output_files_exist) {
 
 # 0 out the sample type that makes no sense
 
-get_relevant_categories <- function(var_name) {
-  if (var_name %in% c("Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed")) {
-    return(c("Biopsy", "Resection"))
-  }
-  if (get_interaction_or_not(var_name)) {
-    return(strsplit(var_desc %>% filter(`Independent Preanalytical Variables` == var_name) %>% pull(`Sample type relevance`), "/")[[1]] %>% str_trim())
-  } else {
-    return(FALSE)
-  }
-}
+
 
 relevant_categories <- lapply(colnames(data_df), get_relevant_categories)
 names(relevant_categories) <- colnames(data_df)
@@ -300,36 +248,20 @@ for (i in seq_len(nrow(types_tbl))) {
   }
 }
 
-
-  ## plots of distributions
-
-  # Create a directory for distribution plots if it doesn't exist
-  output_dir <- file.path(project_dir, "output/distributions/")
-  dir.create(output_dir, showWarnings = FALSE)
-
-  # Plot distributions for each variable in data_df
-  for (var in names(data_df)) {
-    p <- ggplot(data_df, aes_string(x = paste0("`", var, "`"))) +
-      theme_bw() +
-      labs(title = paste("Distribution of", var))
-
-    if (is.numeric(data_df[[var]])) {
-      p <- p + geom_histogram(bins = 50, fill = "blue", color = "black", alpha = 0.7)
-    } else if (is.factor(data_df[[var]]) || is.character(data_df[[var]])) {
-      p <- p + geom_bar(fill = "blue", color = "black", alpha = 0.7)
-    } else {
-      next # Skip if the variable is neither numeric nor categorical
+# remove values that should not exist (inappropriate for its sample type)
+data_df_pre_scaling_NAd_sampletypes <- data_df %>%
+  mutate(across(everything(), ~ {
+    relevant_categories <- get_relevant_categories(cur_column())
+    if (isFALSE(relevant_categories)) {
+      return(.)
     }
+    # Preserve the original class/type
+    original_col <- .
+    mask <- `Sample type` %in% relevant_categories
+    original_col[!mask] <- NA
+    original_col
+  }))
 
-    ggsave(filename = paste0(output_dir, "distribution_", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 12, height = 6)
-  }
-  na_columns <- colnames(data_df)[sapply(data_df, function(x) any(is.na(x)))]
-  if (length(na_columns) > 0) {
-    message("Columns with NAs found:")
-    print(na_columns)
-  } else {
-    message("No columns with NAs found.")
-  }
 
   # Find and remove rows with NA values
   rows_with_na <- which(apply(data_df, 1, function(row) any(is.na(row))))
@@ -351,8 +283,107 @@ for (i in seq_len(nrow(types_tbl))) {
     message("No rows with NA values found")
   }
 
+
+  numeric_vars <- names(data_df)[sapply(data_df, is.numeric)]
+
+  ## use distributions to identify outliers
+
+  # 1. For each numeric variable, compute IQR bounds and collect outlier row‐indices
+  outliers <- map_dfr(numeric_vars, function(var) {
+    x <- data_df_pre_scaling_NAd_sampletypes[[var]]
+    # skip too‐sparse or constant vectors
+    if (length(unique(na.omit(x))) < 10) {
+      return(NULL)
+    }
+    qnt <- quantile(x, c(0.05, 0.95), na.rm = TRUE)
+    iqr <- qnt[2] - qnt[1]
+    lb <- qnt[1] - 1 * iqr
+    ub <- qnt[2] + 1 * iqr
+    idx <- which(!is.na(x) & (x < lb | x > ub))
+    if (length(idx) == 0) {
+      return(NULL)
+    }
+    tibble(
+      variable    = var,
+      row         = idx,
+      value       = x[idx],
+      lower_bound = lb,
+      upper_bound = ub
+    )
+  })
+
+
+
+  # 2. Summary: how many outliers per variable
+  outliers %>%
+    count(variable, name = "n_outliers") %>%
+    mutate(pct = n_outliers / nrow(data_df_pre_scaling_NAd_sampletypes) * 100) %>%
+    arrange(desc(n_outliers)) %>%
+    print()
+
+  # 3. Optional: get the set of row‐numbers to drop (any variable)
+  outlier_rows <- unique(outliers$row)
+
+  # 4. Plot each variable with outliers highlighted
+  output_dir <- file.path(project_dir, "output/outliers/")
+  print(getwd())
+  print(output_dir)
+  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+  for (var in unique(outliers$variable)) {
+    df <- tibble(
+      row = seq_len(nrow(data_df_pre_scaling_NAd_sampletypes)),
+      value = data_df_pre_scaling_NAd_sampletypes[[var]]
+    )
+    df_out <- outliers %>% filter(variable == var)
+    p <- ggplot(df, aes(x = row, y = value)) +
+      geom_point(alpha = 0.6) +
+      geom_point(
+        data = df_out, aes(x = row, y = value),
+        colour = "red", size = 2
+      ) +
+      labs(
+        title = paste("Outliers in", var),
+        x = "Row index", y = "Value"
+      ) +
+      theme_bw()
+    ggsave(filename = paste0(output_dir, "outliers_", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 12, height = 4)
+  }
+
+  ## plots of distributions
+
+  # Create a directory for distribution plots if it doesn't exist
+  output_dir <- file.path(project_dir, "output/distributions/")
+  dir.create(output_dir, showWarnings = FALSE)
+
+  # Plot distributions for each variable in data_df
+  for (var in names(data_df_pre_scaling_NAd_sampletypes)) {
+    p <- ggplot(data_df_pre_scaling_NAd_sampletypes, aes_string(x = paste0("`", var, "`"))) +
+      theme_bw() +
+      labs(title = paste("Distribution of", var))
+
+    if (is.numeric(data_df_pre_scaling_NAd_sampletypes[[var]])) {
+      p <- p + geom_histogram(bins = 50, fill = "blue", color = "black", alpha = 0.7)
+    } else if (is.factor(data_df_pre_scaling_NAd_sampletypes[[var]]) || is.character(data_df_pre_scaling_NAd_sampletypes[[var]])) {
+      p <- p + geom_bar(fill = "blue", color = "black", alpha = 0.7)
+    } else {
+      next # Skip if the variable is neither numeric nor categorical
+    }
+
+    ggsave(filename = paste0(output_dir, "distribution_", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 12, height = 6)
+  }
+  na_columns <- colnames(data_df)[sapply(data_df, function(x) any(is.na(x)))]
+  if (length(na_columns) > 0) {
+    message("Columns with NAs found:")
+    print(na_columns)
+  } else {
+    message("No columns with NAs found.")
+  }
+
+  
+
   data_df_pre_scaling <- data_df
   dir.create(file.path(project_dir, "output/processed_data/"), showWarnings = FALSE)
+  saveRDS(data_df_pre_scaling_NAd_sampletypes, file = file.path(project_dir, "output/processed_data/data_df_pre_scaling_NAd_sampletypes.rds"))
   saveRDS(data_df_pre_scaling, file = file.path(project_dir, "output/processed_data/data_df_pre_scaling.rds"))
   # scaling numeric variables
   scale_ <- function(x) {

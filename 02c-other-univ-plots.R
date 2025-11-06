@@ -9,8 +9,9 @@ for (response_var in response_vars) {
         if (!(get_pretty_name(var) %in% univ_results$variable)) {
             return(NULL) # Skip if variable not in univ_results
         }
-        v <- df[[var]]
-        y <- df[[response_var]]
+        v <- df[[var]][!is.na(df[[var]])]
+        y <- df[[response_var]][!is.na(df[[var]])]
+        df <- df %>% filter(!is.na(.data[[var]]))
         pretty_var <- get_pretty_name(var)
         # Get p-value(s) for this variable from univ_results
         pvals <- univ_results %>% filter(variable == get_pretty_name(var))
@@ -87,8 +88,8 @@ for (response_var in response_vars) {
 
     # Generate plots for all variables except the outcome itself
     all_vs_discrepancy_plots <- lapply(
-        setdiff(names(data_df_pre_scaling), response_var),
-        function(var) plot_vs_discrepancy(data_df_pre_scaling, var, univ_results, get_pretty_name)
+        setdiff(names(data_df_pre_scaling_NAd_sampletypes), response_var),
+        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
     )
     all_vs_discrepancy_plots <- Filter(Negate(is.null), all_vs_discrepancy_plots)
 
@@ -103,20 +104,20 @@ for (response_var in response_vars) {
 
     ## manually selected plots by Mariam
     manual_vars_to_show <- c(
-        names(data_df_pre_scaling)[grepl("Microto", names(data_df_pre_scaling))],
-        names(data_df_pre_scaling)[grepl("Sample.*typ", names(data_df_pre_scaling))],
-        names(data_df_pre_scaling)[grepl("Immu.*agg", names(data_df_pre_scaling))],
-        names(data_df_pre_scaling)[grepl("Necro", names(data_df_pre_scaling))],
-        names(data_df_pre_scaling)[grepl("ructur", names(data_df_pre_scaling))],
-        names(data_df_pre_scaling)[grepl("Acute", names(data_df_pre_scaling))],
-        names(data_df_pre_scaling)[grepl("Path_evaluable_cancer_area_marked_as_artifact_by_AI", names(data_df_pre_scaling))]
+        names(data_df_pre_scaling_NAd_sampletypes)[grepl("Microto", names(data_df_pre_scaling_NAd_sampletypes))],
+        names(data_df_pre_scaling_NAd_sampletypes)[grepl("Sample.*typ", names(data_df_pre_scaling_NAd_sampletypes))],
+        names(data_df_pre_scaling_NAd_sampletypes)[grepl("Immu.*agg", names(data_df_pre_scaling_NAd_sampletypes))],
+        names(data_df_pre_scaling_NAd_sampletypes)[grepl("Necro", names(data_df_pre_scaling_NAd_sampletypes))],
+        names(data_df_pre_scaling_NAd_sampletypes)[grepl("ructur", names(data_df_pre_scaling_NAd_sampletypes))],
+        names(data_df_pre_scaling_NAd_sampletypes)[grepl("Acute", names(data_df_pre_scaling_NAd_sampletypes))],
+        names(data_df_pre_scaling_NAd_sampletypes)[grepl("Path_evaluable_cancer_area_marked_as_artifact_by_AI", names(data_df_pre_scaling_NAd_sampletypes))]
     )
 
 
 
     manual_discrepancy_plots_list <- lapply(
         manual_vars_to_show,
-        function(var) plot_vs_discrepancy(data_df_pre_scaling, var, univ_results, get_pretty_name)
+        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
     )
     manual_discrepancy_plots_list <- Filter(Negate(is.null), manual_discrepancy_plots_list)
     n_plots <- length(manual_discrepancy_plots_list)
@@ -145,7 +146,7 @@ for (response_var in response_vars) {
 
     ai_vars_plots_list <- lapply(
         ai_vars_to_show,
-        function(var) plot_vs_discrepancy(data_df_pre_scaling, var, univ_results, get_pretty_name)
+        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
     )
     ai_vars_plots_list <- Filter(Negate(is.null), ai_vars_plots_list)
     n_plots <- length(ai_vars_plots_list)
@@ -181,11 +182,11 @@ for (response_var in response_vars) {
 
     # Path variables: pretty name does NOT start with (AI)
     sig_vs_discrepancy_plots_path <- lapply(
-        setdiff(names(data_df_pre_scaling), response_vars),
+        setdiff(names(data_df_pre_scaling_NAd_sampletypes), response_vars),
         function(var) {
             pretty_var <- get_pretty_name(var)
             if (pretty_var %in% sig_vars && is_path_var(pretty_var)) {
-                plot_vs_discrepancy(data_df_pre_scaling, var, univ_results, get_pretty_name)
+                plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
             } else {
                 NULL
             }
@@ -199,12 +200,12 @@ for (response_var in response_vars) {
 
     # AI variables: pretty name starts with AI
     sig_vs_discrepancy_plots_ai <- lapply(
-        setdiff(names(data_df_pre_scaling), response_vars),
+        setdiff(names(data_df_pre_scaling_NAd_sampletypes), response_vars),
         function(var) {
             pretty_var <- get_pretty_name(var)
             print(pretty_var)
             if (pretty_var %in% sig_vars && is_ai_var(pretty_var)) {
-                plot_vs_discrepancy(data_df_pre_scaling, var, univ_results, get_pretty_name)
+                plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
             } else {
                 NULL
             }

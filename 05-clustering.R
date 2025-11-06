@@ -1,3 +1,6 @@
+
+classic_no_forced_interactions <- readRDS(file.path(project_dir, "output/processed_data/best_models_classic_no_forced_interactions.rds"))
+
 # ---- Helper Functions ----
 
 #' Prepare model variables matrix
@@ -991,7 +994,7 @@ response_var <- "TCC_Patho_minus_TCC_AI"
 
 
 
-# Grid search
+# Grid search that lead to the best result so far
 # grid_results <- run_clustering_grid_search(
 #     response_var = response_var,
 #     data_df = data_df,

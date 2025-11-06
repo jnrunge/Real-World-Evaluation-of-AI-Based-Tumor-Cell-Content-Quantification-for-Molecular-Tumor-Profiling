@@ -50,10 +50,12 @@ if (ncol(corr_data) > 1) {
 steps_to_run <- 2000 # this is not n_boot number of bootstraps but rather how long each stepwise should run
 n_boot <- 1000
 
+print(project_dir)
+dir.create(file.path(project_dir, "output/bootstrapped_models"), showWarnings = FALSE, recursive = TRUE)
 # Iterate over all response_vars
 results_list <- foreach(response_var = response_vars) %do% {
     rds_file <- file.path(project_dir, "output/processed_data", paste0("bootstrapped_models_forward_", response_var, ".rds"))
-    
+    print(project_dir)
     if (file.exists(rds_file)) {
         boot_forward_list <- readRDS(rds_file)
         if (length(boot_forward_list) != n_boot) {

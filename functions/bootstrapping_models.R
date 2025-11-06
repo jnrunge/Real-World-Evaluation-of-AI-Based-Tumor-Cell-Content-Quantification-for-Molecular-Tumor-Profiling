@@ -1,6 +1,6 @@
 bootstrap_models <- function(data_df,variables, n_boot, response_var, seed=1337, steps=5000) {
     foreach(
-        i = 1:n_boot,
+        i = 1:n_boot, .export = c("project_dir"),
         .packages = c("tidyverse", "stats")
     ) %dopar% {
         source(file.path(project_dir, "functions/manual-stepwise.R"))
