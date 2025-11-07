@@ -1,3 +1,7 @@
+library(renv)
+
+renv::load(".")
+
 library(tidyverse)
 library(readxl)
 library(GGally)
@@ -21,8 +25,8 @@ library(parallel)
 
 if(file.exists("00-universal-dependencies.R")) {
     project_dir <- getwd()
-} else if(file.exists("discrepancies/2025-10-Data-Version/00-universal-dependencies.R")) {
-    project_dir <- file.path(getwd(), "discrepancies/2025-10-Data-Version")
+} else if(file.exists("code/00-universal-dependencies.R")) {
+    project_dir <- file.path(getwd(), "code")
 } 
 
 

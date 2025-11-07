@@ -1,0 +1,5 @@
+.nextflow.log*
+.nextflow/
+output/
+renv/
+work/

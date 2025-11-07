@@ -18,12 +18,15 @@ workflow {
   function1_ch = Channel.fromPath("functions/manual-stepwise.R")
   function2_ch = Channel.fromPath("functions/bootstrapping_models.R")
   function3_ch = Channel.fromPath("functions/best_models.R")
+  renv_dir_ch = Channel.fromPath("renv", type: 'dir')
+  renv_lock_ch = Channel.fromPath("renv.lock")
+  rprofile_ch = Channel.fromPath(".Rprofile")
 
-  data_outputs = load_data(input_xlsx_ch, input_pretty_names_ch, input_merged_data_ch, rscript1_ch, rscript2_ch)
-  univariate_outputs = univariate_analysis(input_xlsx_ch, input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript3_ch, rscript4_ch, rscript5_ch)
-  bootstrapped_outputs = bootstrapped_models(input_xlsx_ch, input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript6_ch, function1_ch, function2_ch)
-  best_models_output = best_models(input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript7_ch, rscript7a_ch, function3_ch, function1_ch, input_xlsx_ch)
-  clustering_outputs = clustering(input_xlsx_ch, input_pretty_names_ch, input_merged_data_ch, best_models_output, rscript1_ch, rscript2_ch, rscript8_ch)
+  data_outputs = load_data(input_xlsx_ch, input_pretty_names_ch, input_merged_data_ch, rscript1_ch, rscript2_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
+  univariate_outputs = univariate_analysis(input_xlsx_ch, input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript3_ch, rscript4_ch, rscript5_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
+  bootstrapped_outputs = bootstrapped_models(input_xlsx_ch, input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript6_ch, function1_ch, function2_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
+  best_models_output = best_models(input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript7_ch, rscript7a_ch, function3_ch, function1_ch, input_xlsx_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
+  clustering_outputs = clustering(input_xlsx_ch, input_pretty_names_ch, input_merged_data_ch, best_models_output, rscript1_ch, rscript2_ch, rscript8_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
 }
 
 process load_data {
@@ -35,6 +38,9 @@ process load_data {
   path input_merged_data_ch, stageAs: 'input/raw/merged_data.csv'
   path rscript1_ch
   path rscript2_ch
+  path renv_dir_ch, stageAs: 'renv'
+  path renv_lock_ch, stageAs: 'renv.lock'
+  path rprofile_ch, stageAs: '.Rprofile'
 
   output:
   path 'output/processed_data/data_df_pre_scaling.rds'
@@ -72,6 +78,9 @@ process univariate_analysis {
   path rscript3_ch
   path rscript4_ch
   path rscript5_ch
+  path renv_dir_ch, stageAs: 'renv'
+  path renv_lock_ch, stageAs: 'renv.lock'
+  path rprofile_ch, stageAs: '.Rprofile'
 
   output:
   path 'output/univar/*'
@@ -102,6 +111,9 @@ maxForks 1
   path rscript6_ch
   path function1_ch, stageAs: 'functions/manual-stepwise.R'
   path function2_ch, stageAs: 'functions/bootstrapping_models.R'
+  path renv_dir_ch, stageAs: 'renv'
+  path renv_lock_ch, stageAs: 'renv.lock'
+  path rprofile_ch, stageAs: '.Rprofile'
 
   output:
   path 'output/processed_data/bootstrapped_models_forward_*.rds'
@@ -135,8 +147,9 @@ process best_models{
   path function3_ch, stageAs: 'functions/best_models.R'
   path function1_ch, stageAs: 'functions/manual-stepwise.R'
   path input_xlsx_ch, stageAs: 'input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx'
-
-
+  path renv_dir_ch, stageAs: 'renv'
+  path renv_lock_ch, stageAs: 'renv.lock'
+  path rprofile_ch, stageAs: '.Rprofile'
 
   output:
   path 'output/processed_data/best_models_classic_no_forced_interactions.rds'
@@ -162,6 +175,9 @@ process clustering{
   path rscript1_ch
   path rscript2_ch
   path rscript8_ch
+  path renv_dir_ch, stageAs: 'renv'
+  path renv_lock_ch, stageAs: 'renv.lock'
+  path rprofile_ch, stageAs: '.Rprofile'
 
   output:
   path 'output/clustering/*'

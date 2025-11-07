@@ -1,3 +1,7 @@
+steps_to_run <- 2000 # this is not n_boot number of bootstraps but rather how long each stepwise should run
+n_boot <- 1000
+
+
 source(file.path(project_dir, "functions/manual-stepwise.R"))
 source(file.path(project_dir, "functions/bootstrapping_models.R"))
 
@@ -47,8 +51,7 @@ if (ncol(corr_data) > 1) {
 }
 
 
-steps_to_run <- 2000 # this is not n_boot number of bootstraps but rather how long each stepwise should run
-n_boot <- 1000
+
 
 print(project_dir)
 dir.create(file.path(project_dir, "output/bootstrapped_models"), showWarnings = FALSE, recursive = TRUE)
