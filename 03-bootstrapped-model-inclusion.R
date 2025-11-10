@@ -9,6 +9,9 @@ response_vars <- variables %>%
     filter(type == "response") %>%
     pull(variable)
 
+variables <- variables %>%
+    filter(!(variable %in% variables_not_in_model))
+
 n_cores <- parallel::detectCores() - 1
 cl <- makeCluster(n_cores)
 registerDoParallel(cl)
@@ -57,6 +60,10 @@ print(project_dir)
 dir.create(file.path(project_dir, "output/bootstrapped_models"), showWarnings = FALSE, recursive = TRUE)
 # Iterate over all response_vars
 results_list <- foreach(response_var = response_vars) %do% {
+    if(response_var == "TCC_Patho_minus_TCC_FMI"){
+        variables <- variables %>%
+            filter(!(variable %in% variables_not_in_path_vs_fmi))
+    }
     rds_file <- file.path(project_dir, "output/processed_data", paste0("bootstrapped_models_forward_", response_var, ".rds"))
     print(project_dir)
     if (file.exists(rds_file)) {

@@ -3,3 +3,5 @@
 output/
 renv/
 work/
+.Rproj.user
+code.Rproj

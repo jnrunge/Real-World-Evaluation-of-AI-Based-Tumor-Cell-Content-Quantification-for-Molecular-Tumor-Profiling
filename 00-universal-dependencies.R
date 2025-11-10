@@ -1,6 +1,34 @@
+if(file.exists("code/00-universal-dependencies.R")) {
+    setwd(file.path(getwd(), "code"))
+} 
+
+project_dir <- getwd()
+
 library(renv)
 
 renv::load(".")
+
+
+variables_not_in_model <- c("Metastatic",
+"SpecimenSiteGrouped_01",
+"SpecimenSiteGrouped_02",
+"AI_total_tumor_area_%",
+"Path_Cautery/Crush artifact average_yes_no",
+"Path_Tumor-Stroma Content",
+"Path_High content of intratumoral immune infiltrates",
+"Path_Highly cellular stroma",
+"AI_cancer_area_%_per_tumor",
+"AI_stroma_%_per_tumor",
+"AI_lymphocyte_density_in_tumor_mm2",
+"AI_fibroblast_density_in_tumor_mm2",
+"AI_%_lymphocytes_in_tumor",
+"AI_%_of_fibroblasts_in_tumor",
+"AI_%_of_immune_cells_in_tumor",
+"AI_%_of_non_immune_cells_in_tumor",
+"Path_Margin Ink_Resection"
+)
+
+variables_not_in_path_vs_fmi <- c("Path_WSI Quality", "AI_scanning_artifacts_area_%")
 
 library(tidyverse)
 library(readxl)
@@ -23,11 +51,6 @@ library(ggforce)
 library(parallel)
 
 
-if(file.exists("00-universal-dependencies.R")) {
-    project_dir <- getwd()
-} else if(file.exists("code/00-universal-dependencies.R")) {
-    project_dir <- file.path(getwd(), "code")
-} 
 
 
 print(paste0("Project directory is: ", project_dir))

@@ -6,6 +6,10 @@ response_vars <- variables %>%
     filter(type == "response") %>%
     pull(variable)
 
+    variables <- variables %>%
+    filter(!(variable %in% variables_not_in_model))
+
+
 rds_file <- file.path(project_dir, "output/processed_data/best_models_classic_no_forced_interactions.rds")
 
 if (file.exists(rds_file)) {
@@ -16,6 +20,10 @@ if (file.exists(rds_file)) {
     for (response_var in response_vars) {
         var_table <- variables %>%
             filter(type != "response" | variable == response_var)
+        if(response_var == "TCC_Patho_minus_TCC_FMI"){
+            variables <- variables %>%
+        filter(!(variable %in% variables_not_in_path_vs_fmi))
+    }
         
         classic_no_forced_interactions[[response_var]] <- perform_forward_selection(var_table %>% filter(type == "response" | !grepl("TCC", variable)), data_df, force_interaction = FALSE, steps = 5000, seed = 1, reps = 32)
     }
