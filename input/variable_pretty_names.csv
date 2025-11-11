@@ -125,6 +125,7 @@ Path_Thick_Specimen,(Path) Thick Specimen
 Path_Cautery/Crush artifact_ average,(Path) Cautery/Crush Artifact [numeric]
 Path_Cautery/Crush artifact average_yes_no,(Path) Cautery/Crush Artifact [yes/no]
 Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed,(Path) Cancer Content in Tissue Specimens per Slide (Resection/Biopsy) Ratio
+Path_Cancer_content_in_tissue_specimens_per_slide_Resection.Biopsy_Ratio_fixed,(Path) Cancer Content in Tissue Specimens per Slide (Resection/Biopsy) Ratio
 Path_specimen_fragmentation,(Path) Specimen Fragmentation
 Path_evaluable_cancer_area_marked_as_artifact_by_AI,(Path) Evaluable Cancer Area Marked as Artifact by AI
 AI_total_cell_density_mm2,(AI) Total Cell Density
@@ -172,5 +173,3 @@ AI_total_tumor_area_.,(AI) Tumor Area [%]
 AI_._of_fibroblasts_in_tumor,(AI) Fibroblasts in Tumor [%]
 AI_._of_immune_cells_in_tumor,(AI) Immune Cells in Tumor [%]
 Path_Tumor.Infiltrating.lymphocytes,(Path) Tumor Infiltrating Lymphocytes
-
-

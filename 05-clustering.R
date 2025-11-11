@@ -1,4 +1,3 @@
-
 classic_no_forced_interactions <- readRDS(file.path(project_dir, "output/processed_data/best_models_classic_no_forced_interactions.rds"))
 
 # ---- Helper Functions ----
@@ -740,6 +739,24 @@ find_best_clustering <- function(grid_results, response_var) {
     best_result <- grid_results$results[[best_idx]]
     best_params <- grid_results$parameters[best_idx, ]
     
+    # Rename output directory to include "best_" prefix
+    old_output_dir <- best_result$output_dir
+    dir_name <- basename(old_output_dir)
+    parent_dir <- dirname(old_output_dir)
+    new_dir_name <- paste0("best_", dir_name)
+    new_output_dir <- file.path(parent_dir, new_dir_name)
+    
+    # Rename the directory
+    if (dir.exists(old_output_dir)) {
+        # Remove new directory if it already exists
+        if (dir.exists(new_output_dir)) {
+            unlink(new_output_dir, recursive = TRUE)
+        }
+        file.rename(old_output_dir, new_output_dir)
+        best_result$output_dir <- new_output_dir
+        message("Renamed output directory to: ", new_output_dir)
+    }
+    
     message("\n========================================")
     message("BEST CLUSTERING RESULT:")
     message("Index: ", best_idx)
@@ -749,7 +766,7 @@ find_best_clustering <- function(grid_results, response_var) {
             ", min_dist=", best_params$min_dist)
     message("F-ratio: ", round(ranking$f_ratio[1], 3))
     message("Number of clusters: ", ranking$n_clusters[1])
-    message("Output directory: ", best_result$output_dir)
+    message("Output directory: ", new_output_dir)
     message("========================================\n")
     
     # Print top 5 results
@@ -990,59 +1007,51 @@ run_clustering_grid_search <- function(response_var,
 
 # ---- Execute Analysis ----
 
-response_var <- "TCC_Patho_minus_TCC_AI"
 
+message("Found ", length(response_vars), " response variables to analyze:")
+message(paste(response_vars, collapse = ", "))
 
-
-# Grid search that lead to the best result so far
-# grid_results <- run_clustering_grid_search(
-#     response_var = response_var,
-#     data_df = data_df,
-#     data_df_renamed = data_df_renamed,
-#     model_list = classic_no_forced_interactions,
-#     output_base_dir = "discrepancies/2025-10-Data-Version/output/clustering",
-#     eps_values = c(0.2,0.3,0.4, 0.5, 0.6, 0.7, 0.8),
-#     minPts_values = nrow(data_df_renamed)*0.05,
-#     n_neighbors_values = c(5,10,15,20),
-#     min_dist_values = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5),
-#     seed = 123
-# )
-
-
-
-grid_results <- run_clustering_grid_search(
-    response_var = response_var,
-    data_df = data_df,
-    data_df_renamed = data_df_renamed,
-    model_list = classic_no_forced_interactions,
-    output_base_dir = file.path(project_dir, "output/clustering"),
-    eps_values = c(0.6),
-    minPts_values = nrow(data_df_renamed) * 0.05, # arbitrary but basically saying "dont give me super tiny clusters" and is roughly == dimensionality pre-UMAP
-    n_neighbors_values = c(10),
-    min_dist_values = c(0.1),
-    seed = 123
-)
-
-saveRDS(grid_results, 
-        file = file.path(project_dir, "output/clustering", 
-                         paste0(response_var, "_clustering_grid_results.rds")))
-
-
-names(grid_results)
-
-# Find best clustering result
-best_clustering <- find_best_clustering(grid_results, response_var)
-
-# Save ranking
-write_csv(
-    best_clustering$ranking,
-    file.path(project_dir, "output/clustering",
-        paste0(response_var, "_clustering_ranking.csv")
+# Loop through all response variables
+for (response_var in response_vars) {
+    message("\n\n========================================")
+    message("STARTING ANALYSIS FOR: ", response_var)
+    message("========================================\n")
+    
+    # Run grid search
+    grid_results <- run_clustering_grid_search(
+        response_var = response_var,
+        data_df = data_df,
+        data_df_renamed = data_df_renamed,
+        model_list = classic_no_forced_interactions,
+        output_base_dir = file.path(project_dir, "output/clustering"),
+        eps_values = c(0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8),
+        minPts_values = nrow(data_df_renamed) * 0.05,
+        n_neighbors_values = c(5, 10, 15, 20),
+        min_dist_values = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5),
+        seed = 123
     )
-)
+    
+    # Save grid results
+    saveRDS(grid_results, 
+            file = file.path(project_dir, "output/clustering", 
+                             paste0(response_var, "_clustering_grid_results.rds")))
+    
+    # Find best clustering result
+    best_clustering <- find_best_clustering(grid_results, response_var)
+    
+    # Save ranking
+    write_csv(
+        best_clustering$ranking,
+        file.path(project_dir, "output/clustering",
+            paste0(response_var, "_clustering_ranking.csv")
+        )
+    )
+    
+    message("\n========================================")
+    message("COMPLETED ANALYSIS FOR: ", response_var)
+    message("========================================\n")
+}
 
-# cor is high
-cor(best_clustering$ranking$f_ratio,best_clustering$ranking$n_clusters)
-
-
-# best cluster at the moment S:\People\JanN\PathAI_analyses\discrepancies\2025-10-Data-Version\clustering\TCC_Patho_minus_TCC_AI_eps0.60_minPts15_nn10_md0.10
+message("\n\n========================================")
+message("ALL RESPONSE VARIABLES PROCESSED")
+message("========================================")
