@@ -156,12 +156,11 @@ AI_%_of_immune_cells_in_tumor,(AI) Immune Cells in Tumor [%]
 AI_%_of_non_immune_cells_in_tumor,(AI) Non-Immune Cells in Tumor [%]
 AI_density_of_cells_in_normal_tissue_mm2,(AI) Density of Cells in Normal Tissue
 Path_Margin Ink_Resection,(Path) Margin Ink (Resection)
-TCC_FMI_minus_TCC_AI,TCC FMI Minus TCC AI
-TCC_Patho_minus_TCC_FMI,TCC Patho Minus TCC FMI
+TCC_FMI_minus_TCC_AI,TCC "FMI" - "AI" Discrepancy
+TCC_Patho_minus_TCC_FMI,TCC "Patho" - "FMI" Discrepancy
+TCC_Patho_minus_TCC_AI,TCC "Patho" - "AI" Discrepancy
 AI_total_stroma_area_.,(AI) Stroma Area [%]
 AI_total_necrosis_area_.,(AI) Necrosis Area [%]
-TCC_Patho_minus_TCC_AI,TCC_Patho_minus_TCC_AI
-TCC_Patho_minus_TCC_AI,TCC_Patho_minus_TCC_AI
 AI_cancer_area_._per_tumor,(AI) Cancer Area per Tumor [%] 
 AI_total_cancer_area_.,(AI) Cancer Area [%]
 Path_Acute.infflammation,(Path) Acute Inflammation

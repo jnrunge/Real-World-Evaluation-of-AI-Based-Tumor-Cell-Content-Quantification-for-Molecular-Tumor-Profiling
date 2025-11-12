@@ -101,21 +101,32 @@ for (response_var in response_vars) {
         )
 
     # Plot numeric variables: Spearman rho
+    vars_to_exclude <- if (response_var == "TCC_Patho_minus_TCC_FMI") {
+        c(variables_not_in_path_vs_fmi, variables_not_in_model) %>%
+            lapply(get_pretty_name) %>%
+            unlist()
+    } else {
+        variables_not_in_model %>%
+            lapply(get_pretty_name) %>%
+            unlist()
+    }
+
     plot_numeric <- univ_results %>%
-        filter(type == "numeric") %>%
-        mutate(variable = factor(variable, levels = variable[order(value)])) %>%
+        filter(type == "numeric", !(variable %in% vars_to_exclude)) %>%
+        mutate(variable = factor(variable,
+                                 levels = variable[order(value)])) %>%
         ggplot(aes(x = value, y = variable, color = p.value < 0.05)) +
         geom_point(size = 3) +
         scale_color_manual(values = c("grey60", "firebrick")) +
         labs(
-            x = "Spearman's rho", y = NULL, color = "p < 0.05",
-            title = paste("Outcome:", response_var)
+          x = "Spearman's rho", y = NULL, color = "p < 0.05",
+          title = paste("Outcome:", response_var)
         ) +
         theme_bw(14)
 
     # Plot categorical variables: effect size (median diff)
-    plot_categorical_noss <- univ_results %>%
-        filter(type == "categorical", variable != "Specimen Site") %>%
+    plot_categorical <- univ_results %>%
+        filter(type == "categorical", !(variable %in% vars_to_exclude)) %>%
         mutate(variable = factor(variable)) %>%
         ggplot(aes(x = stat, y = variable, fill = p.value < 0.05)) +
         geom_tile(color = "white", height = 0.8, width = 0.8) +
@@ -143,6 +154,6 @@ for (response_var in response_vars) {
 
     # Show plots with response variable in filename
     plot_numeric %>% ggsave(filename = file.path(project_dir, "output/univar", paste0("univariate_numeric_", response_var, ".pdf")), width = 10, height = 4, dpi = 300)
-    plot_categorical_noss %>% ggsave(filename = file.path(project_dir, "output/univar", paste0("univariate_categorical_", response_var, ".pdf")), width = 10, height = 30, dpi = 300)
+    plot_categorical %>% ggsave(filename = file.path(project_dir, "output/univar", paste0("univariate_categorical_", response_var, ".pdf")), width = 10, height = 30, dpi = 300)
     write_tsv(univ_results, file = file.path(project_dir, "output/univar", paste0("univariate_results_", response_var, ".tsv")))
 }

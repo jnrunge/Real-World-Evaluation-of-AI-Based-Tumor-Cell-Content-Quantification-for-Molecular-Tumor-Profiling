@@ -174,14 +174,14 @@ plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_d
         dplyr::group_by(cluster_label) %>%
         summarise(mean_pred = mean(pred, na.rm = TRUE))
     
-    p_summary <- ggplot(df_all, aes(x = factor(cluster_label, 
+    p_summary <- ggplot(df_all %>% filter(cluster != 0), aes(x = factor(cluster_label, 
                                                levels = samples_cluster_labels$cluster_label), 
                                    y = .data[[response_var]], 
                                    fill = cluster_label)) +
         geom_boxplot(alpha = 0.7, outlier.shape = NA) +
         geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
         geom_point(
-            data = mean_pred_by_cluster,
+            data = mean_pred_by_cluster %>% filter(!startsWith(cluster_label,"C0")),
             aes(x = cluster_label, y = mean_pred),
             color = "white", size = 4, shape = 18, inherit.aes = FALSE
         ) +
@@ -402,8 +402,10 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
 #' @param model_list List of models
 #' @param X Model variables matrix
 #' @param output_dir Output directory
+#' @param reverse_colors Logical, if TRUE reverses color direction (blue=high, red=low)
 create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all, 
-                                  response_var, model_list, X, output_dir) {
+                                  response_var, model_list, X, output_dir,
+                                  reverse_colors = FALSE) {
     # ...existing code to prepare clustered_data...
     data_df_renamed_only_model_vars <- model_list[[response_var]]$model %>%
         formula() %>%
@@ -535,8 +537,8 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
     
     tc_path_plot_df <- tc_path_summary %>%
         mutate(
-            variable = "TC_Path_minus_TC_AI",
-            value_type = "TC_Path_minus_TC_AI",
+            variable = response_var,
+            value_type = response_var,
             display = cat,
             fill_legend = "Hard Cutoff",
             alpha_val = 1 - pmin(variation, 0.7)
@@ -564,7 +566,11 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         ) +
         scale_fill_manual(
             name = NULL,
-            values = c("#b2182b", "#ef8a62", "#f7f7f7", "#67a9cf", "#2166ac"),
+            values = if (reverse_colors) {
+                c("#2166ac", "#67a9cf", "#f7f7f7", "#ef8a62", "#b2182b")
+            } else {
+                c("#b2182b", "#ef8a62", "#f7f7f7", "#67a9cf", "#2166ac")
+            },
             drop = FALSE,
             guide = guide_legend(order = 1, override.aes = list(alpha = 1))
         ) +
@@ -581,7 +587,9 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         scale_fill_manual(
             name = NULL,
             values = (function() {
-                pal <- grDevices::colorRampPalette(c("#b2182b", "#2166ac"))(4)
+                pal <- grDevices::colorRampPalette(
+                    if (reverse_colors) c("#2166ac", "#b2182b") else c("#b2182b", "#2166ac")
+                )(4)
                 c(
                     "No" = pal[1],
                     "Yes" = pal[4],
@@ -598,16 +606,16 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         scale_alpha(range = c(0.8, 1), guide = "none") +
         ggnewscale::new_scale_fill() +
         geom_tile(
-            data = subset(heatmap_df, value_type == "TC_Path_minus_TC_AI") %>% 
-                mutate(variable = "TCC Path-AI Discrepancy"),
+            data = subset(heatmap_df, value_type == response_var) %>% 
+                mutate(variable = get_pretty_name(response_var)),
             aes(fill = mean_val, alpha = alpha_val),
             color = "white"
         ) +
         scale_fill_gradient2(
             name = NULL,
-            low = "#b2182b",
+            low = if (reverse_colors) "#2166ac" else "#b2182b",
             mid = "#f7f7f7",
-            high = "#2166ac",
+            high = if (reverse_colors) "#b2182b" else "#2166ac",
             midpoint = 0,
             na.value = "grey90"
         ) +
@@ -796,6 +804,7 @@ find_best_clustering <- function(grid_results, response_var) {
 #' @param n_neighbors UMAP n_neighbors parameter
 #' @param min_dist UMAP min_dist parameter
 #' @param seed Random seed
+#' @param reverse_colors Logical, if TRUE reverses color direction in heatmap (blue=high, red=low)
 run_clustering_analysis <- function(response_var, 
                                    data_df, 
                                    data_df_renamed, 
@@ -805,7 +814,8 @@ run_clustering_analysis <- function(response_var,
                                    minPts = NULL,
                                    n_neighbors = 15,
                                    min_dist = 0.1,
-                                   seed = 123) {
+                                   seed = 123,
+                                   reverse_colors = FALSE) {
     
     # Create parameter-specific output directory
     param_dir <- sprintf("%s_eps%.2f_minPts%d_nn%d_md%.2f", 
@@ -864,7 +874,7 @@ run_clustering_analysis <- function(response_var,
     # 10. Create cluster heatmap
     message("Step 10: Creating cluster summary heatmap...")
     create_cluster_heatmap(data_df_renamed, db$cluster, df_all, response_var, 
-                          model_list, X, output_dir)
+                          model_list, X, output_dir, reverse_colors = reverse_colors)
     
     message("Clustering analysis complete!")
     
@@ -890,6 +900,7 @@ run_clustering_analysis <- function(response_var,
 #' @param min_dist_values Vector of min_dist values to try
 #' @param seed Random seed
 #' @param n_cores Number of cores to use (default: detectCores() - 1)
+#' @param reverse_colors Logical, if TRUE reverses color direction in heatmap (blue=high, red=low)
 run_clustering_grid_search <- function(response_var,
                                       data_df,
                                       data_df_renamed,
@@ -900,7 +911,8 @@ run_clustering_grid_search <- function(response_var,
                                       n_neighbors_values = c(10, 15, 20),
                                       min_dist_values = c(0.05, 0.1, 0.2),
                                       seed = 123,
-                                      n_cores = NULL) {
+                                      n_cores = NULL,
+                                      reverse_colors = FALSE) {
     
     # Create parameter grid
     param_grid <- expand.grid(
@@ -926,7 +938,7 @@ run_clustering_grid_search <- function(response_var,
     
     # Export necessary objects and functions to cluster
     clusterExport(cl, c("response_var", "data_df", "data_df_renamed", "model_list", 
-                       "output_base_dir", "seed",
+                       "output_base_dir", "seed", "reverse_colors",
                        "run_clustering_analysis", "prepare_model_variables",
                        "perform_umap", "plot_umap_embedding", "perform_dbscan_clustering",
                        "plot_dbscan_clusters", "compute_cluster_statistics",
@@ -968,7 +980,8 @@ run_clustering_grid_search <- function(response_var,
                     minPts = params$minPts,
                     n_neighbors = params$n_neighbors,
                     min_dist = params$min_dist,
-                    seed = seed
+                    seed = seed,
+                    reverse_colors = reverse_colors
                 )
                 result
             }, error = function(e) {
@@ -1028,7 +1041,8 @@ for (response_var in response_vars) {
         minPts_values = nrow(data_df_renamed) * 0.05,
         n_neighbors_values = c(5, 10, 15, 20),
         min_dist_values = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5),
-        seed = 123
+        seed = 123,
+        reverse_colors = TRUE  # Set to TRUE to reverse colors (blue=high, red=low)
     )
     
     # Save grid results
