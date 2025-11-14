@@ -262,10 +262,10 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
         scale_x_discrete(labels = function(x) unlist(lapply(x, get_pretty_name))) +
         coord_flip() +
         labs(title = "Per-Term Contributions to the Linear Predictor") +
-        theme_bw(base_size = 11)
+        theme_bw(base_size = 14)
     
     ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_per_sample.png")), 
-           plot = p_contrib, width = 8, height = 6, dpi = 300)
+           plot = p_contrib, width = 14, height = 6, dpi = 300)
     
     # Contributions for all cluster members
     df_all_contrib <- df_all_nn
@@ -303,10 +303,10 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
         coord_flip() +
         labs(title = "Per-Term Contributions to the Linear Predictor (All Cluster Members)",
              y = "Contribution", x = "Term") +
-        theme_minimal(base_size = 11)
+        theme_bw(base_size = 14)
     
     ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_all_cluster_members.png")), 
-           plot = p_contrib_all, width = 10, height = 8, dpi = 300)
+           plot = p_contrib_all, width = 14, height = 8, dpi = 300)
 }
 
 #' Plot variable distributions by cluster
@@ -359,12 +359,12 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
         facet_wrap(~variable, scales = "free", ncol = 3,
                   labeller = labeller(variable = as_labeller(
                       function(x) unlist(lapply(x, get_pretty_name))))) +
-        theme_bw() +
+        theme_bw(14) +
         labs(title = "Distributions of Numeric Model Variables by Cluster",
              x = NULL, y = "Density", fill = "Cluster")
     
     ggsave(file.path(output_dir, paste0(response_var, "_numeric_variable_distributions_by_cluster.pdf")), 
-           plot = p_num, width = 12, height = 8)
+           plot = p_num, width = 13, height = 8)
     
     # Categorical variables
     fac_cols <- names(clustered_data)[
@@ -383,7 +383,7 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
                 facet_wrap(~variable, scales = "free", ncol = 3,
                           labeller = labeller(variable = as_labeller(
                               function(x) unlist(lapply(x, get_pretty_name))))) +
-                theme_bw() +
+                theme_bw(14) +
                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
                 labs(title = "Distributions of Categorical Model Variables by Cluster",
                      x = NULL, y = "Count", fill = "Cluster")

@@ -135,7 +135,7 @@ for (response_var in response_vars) {
             x = "Group comparison", y = NULL, fill = "p < 0.05",
             title = paste("Outcome:", response_var)
         ) +
-        theme_bw(12) +
+        theme_bw(14) +
         # scale_x_discrete(labels = NULL) +
         scale_y_discrete(labels = NULL) +
         theme(

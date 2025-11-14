@@ -35,31 +35,6 @@ add_identity_line_colored_corner <- function(data, mapping, ...) {
         scale_color_brewer(palette = "Dark2")
 }
 
-# Create a 3x3 scatterplot matrix with histograms on the diagonal
-# Custom function for upper panels: show discrepancy (a - b) as a histogram
-add_discrepancy_hist <- function(data, mapping, ...) {
-    x <- eval_data_col(data, mapping$x)
-    y <- eval_data_col(data, mapping$y)
-    discrepancy <- x - y
-    # Only plot if not on the diagonal
-    if (identical(mapping$x, mapping$y)) {
-        return(ggplot() +
-            theme_void())
-    }
-    ggplot(data.frame(discrepancy = discrepancy), aes(x = discrepancy)) +
-        geom_histogram(
-            bins = 30, fill = "#72c2ff", color = "#013d6b", alpha = 0.8
-        ) +
-        geom_vline(xintercept = 0, linetype = "dashed", color = "grey60") +
-        labs(x = NULL, y = NULL) +
-        theme_bw(18) +
-        theme(
-            panel.grid.major = element_blank(),
-            panel.grid.minor = element_blank(),
-            axis.text = element_blank(),
-            axis.ticks = element_blank()
-        )
-}
 
 
 # Function to compute correlation and map to color
@@ -98,7 +73,7 @@ add_r2_box_panel <- function(data, mapping, ...) {
         ) +
         annotate("text",
             x = sq_xmax - sq_size / 2, y = sq_ymax - sq_size / 2,
-            label = sprintf("%.2f", r_info$r), size = 10, fontface = "bold"
+            label = sprintf("%.2f", r_info$r), size = 8, fontface = "bold"
         ) +
         scale_x_continuous(limits = c(0, 100)) +
         scale_y_continuous(limits = c(0, 100)) +
@@ -114,7 +89,7 @@ p_matrix <- ggpairs(
     lower = list(continuous = add_identity_line_colored_corner),
     columnLabels = c("AI", "Patho", "FMI")
 ) +
-    theme_bw(18) +
+    theme_bw(14) +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
     ggtitle("All combined")
 
@@ -159,7 +134,7 @@ p_matrix_tissue_list <- map(
             lower = list(continuous = add_identity_line_colored_corner),
             columnLabels = c("AI", "Patho", "FMI")
         ) +
-            theme_bw(18) +
+            theme_bw(14) +
             theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
             ggtitle(paste(tissue, "CA"))
         for (i in 1:3) {
@@ -240,7 +215,7 @@ sampletype_discrepancy_hist <- ggplot(data_df_complete, aes(x = TCC_Patho_minus_
     geom_histogram(position = "dodge", bins = 30, color = "#013d6b", alpha = 0.85) +
     facet_wrap(~`Sample type`, ncol = 1) +
     scale_fill_brewer(palette = "Dark2") +
-    theme_bw(18) +
+    theme_bw(14) +
     theme(
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -276,4 +251,5 @@ combined_with_hist <- (combined_p_matrix | sampletype_discrepancy_hist_noleg) +
     plot_layout(widths = c(0.85, 0.15))
 
 # Show or save the combined plot
-ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations_with_sampletype_hist.PDF"), combined_with_hist, width = 18, height = 11, dpi = 300)
+ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations_with_sampletype_hist.PDF"), combined_with_hist, width = 15, height = 9, dpi = 300)
+

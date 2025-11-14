@@ -147,7 +147,7 @@ if (file.exists(rds_file)) {
                 ),
                 x = "Model Fit (ordered by similarity)", y = "Predictor", fill = ""
             ) +
-            theme_minimal() +
+            theme_minimal(14) +
             theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
         # Combine dendrogram and main plot
@@ -194,7 +194,7 @@ for (response_var in names(classic_no_forced_interactions)) {
             x = "Step",
             y = "AIC"
         ) +
-        theme_bw()
+        theme_bw(14)
 
     ggsave(
         file.path(project_dir, "output/model_plots", paste0("aic_progression_", response_var, ".pdf")),

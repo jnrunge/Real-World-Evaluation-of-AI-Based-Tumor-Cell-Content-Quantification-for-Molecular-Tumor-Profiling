@@ -52,7 +52,6 @@ library(parallel)
 
 
 
-
 print(paste0("Project directory is: ", project_dir))
 
 pretty_names <- read_csv(file.path(project_dir, "input/variable_pretty_names.csv"))

@@ -1,7 +1,3 @@
-# Optional dependency: MASS is not used by the function below (base stats::AIC/lm are used).
-# Keep this only if you plan to use MASS::stepAIC elsewhere in this script.
-library(MASS) # 7.3-60.0.1
-
 #' Randomized stepwise AIC model selection with optional enforced interactions
 #'
 #' This function performs a randomized add/remove search over candidate terms
@@ -12,7 +8,6 @@ library(MASS) # 7.3-60.0.1
 #' Note:
 #' - direction and trace are accepted for interface compatibility, but currently ignored.
 #' - Rows with missing values in required variables are dropped before fitting.
-#' - MASS is not used here; only base stats::lm and stats::AIC are used.
 #'
 #' @param model_data A data.frame with all candidate variables as columns.
 #' @param v_table    A data.frame with columns:
@@ -33,15 +28,6 @@ library(MASS) # 7.3-60.0.1
 #'                     - steps: data.frame logging the search (see note on column names below)
 #' @details
 #' - Interactions in v_table$interaction may be provided as "varA;varB" to indicate multiple partners.
-#' - Required packages: if enforce_interactions = FALSE and removal branch is reached,
-#'   code paths use stringr/magrittr helpers (str_replace, str_replace_all, %>%).
-#'   Load those packages or adapt the code if you hit those paths.
-#' - Known caveats retained for reproducibility:
-#'   (1) Add step accepts only if AIC improves by > aic_delta AND the proposed AIC > 0,
-#'       which rejects improvements to negative AIC; adjust if needed.
-#'   (2) steps log is initialized with column 'terms' but rows use 'term'; align if you rely on it.
-#'   (3) When nrow(raw_interactions) == 0, interaction_rows <- tibble() requires the tibble package;
-#'       use data.frame() instead if tibble is unavailable.
 stepwise_aic <- function(model_data, v_table, direction = "both", trace = FALSE, steps=1000, aic_delta=2, enforce_interactions=TRUE, seed=123) {
   # Filter out variables with <= 1 unique non-missing value (uninformative predictors)
   vars <- v_table$variable

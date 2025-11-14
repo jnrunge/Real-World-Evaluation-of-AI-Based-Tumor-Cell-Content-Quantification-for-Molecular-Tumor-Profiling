@@ -345,8 +345,8 @@ data_df_pre_scaling_NAd_sampletypes <- data_df %>%
         title = paste("Outliers in", var),
         x = "Row index", y = "Value"
       ) +
-      theme_bw()
-    ggsave(filename = paste0(output_dir, "outliers_", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 12, height = 4)
+      theme_bw(14)
+    ggsave(filename = paste0(output_dir, "", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 12, height = 4)
   }
 
   ## plots of distributions
@@ -358,7 +358,7 @@ data_df_pre_scaling_NAd_sampletypes <- data_df %>%
   # Plot distributions for each variable in data_df
   for (var in names(data_df_pre_scaling_NAd_sampletypes)) {
     p <- ggplot(data_df_pre_scaling_NAd_sampletypes, aes_string(x = paste0("`", var, "`"))) +
-      theme_bw() +
+      theme_bw(14) +
       labs(title = paste("Distribution of", var))
 
     if (is.numeric(data_df_pre_scaling_NAd_sampletypes[[var]])) {
@@ -369,7 +369,7 @@ data_df_pre_scaling_NAd_sampletypes <- data_df %>%
       next # Skip if the variable is neither numeric nor categorical
     }
 
-    ggsave(filename = paste0(output_dir, "distribution_", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 12, height = 6)
+    ggsave(filename = paste0(output_dir, "", gsub("[^A-Za-z0-9]", "_", var), ".png"), plot = p, width = 13, height = 6)
   }
   na_columns <- colnames(data_df)[sapply(data_df, function(x) any(is.na(x)))]
   if (length(na_columns) > 0) {

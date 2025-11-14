@@ -497,10 +497,14 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
 
     # Remove factor level suffixes like "High" or "Good" from coef_base and orig_vars for matching
     remove_level_suffix <- function(x) {
-        # Remove suffix if it matches any in the list (e.g., "High", "Good") at the end of the string
-        suffixes <- c("High", "Good")
+        suffixes <- c("High", "Good", "Cytology", "Biopsy", "Resection", "Moderate", "Low", "Poor", "Excellent", "Fair")
         pattern <- paste0("(", paste(suffixes, collapse = "|"), ")$")
-        sub(pattern, "", x)
+        process_one <- function(elem) {
+            parts <- strsplit(elem, ":", fixed = TRUE)[[1]]
+            parts <- vapply(parts, function(p) sub(pattern, "", p), character(1))
+            paste(parts, collapse = ":")
+        }
+        vapply(x, process_one, character(1), USE.NAMES = FALSE)
     }
     coef_base <- remove_level_suffix(coef_base)
 
@@ -508,18 +512,58 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
 
     # For each orig_var, find matching coef indices (with or without .L/.Q)
     ordered_indices <- unlist(lapply(orig_vars, function(var) which(coef_base == var)))
+    
+    # Handle interaction terms: place them right after the lower-ranking component
+    interaction_indices <- which(grepl(":", coef_base))
+    if (length(interaction_indices) > 0) {
+        for (int_idx in interaction_indices) {
+            # Get the interaction term
+            int_term <- coef_base[int_idx]
+            # Split into components
+            components <- strsplit(int_term, ":", fixed = TRUE)[[1]]
+            
+            # Find the positions of each component in ordered_indices
+            comp_positions <- sapply(components, function(comp) {
+                which(ordered_indices==(which(coef_base==comp) %>% max()))
+            })
+            comp_positions <- comp_positions[!is.na(comp_positions)]
+            
+            if (length(comp_positions) > 0) {
+                # Place interaction right after the lower-ranking (higher position number) component
+                insert_after <- max(comp_positions)
+                # Insert the interaction index at this position
+                ordered_indices <- append(ordered_indices, int_idx, after = insert_after)
+            } else {
+                # If components not found in ordered_indices, append at end
+                ordered_indices <- c(ordered_indices, int_idx)
+            }
+        }
+    }
     ordered_indices <- ordered_indices[ordered_indices > 0]
 
     # Compute y-axis limits so that min and max are symmetric around zero
     coef_vals <- model$coefficients
+    ordered_indices <- ordered_indices[ordered_indices %in% (which(!is.na(coef_vals))-1)]
     coef_names <- coef_names[which(!is.na(coef_vals))-1] # -1 for intercept already removed
     coef_vals <- coef_vals[!is.na(coef_vals)]
     # Get standard errors for coefficients
     coef_se <- summary(model)$coefficients[, "Std. Error"]
     # Compute range including SE
-    coef_range <- range(coef_vals + coef_se, coef_vals - coef_se, na.rm = TRUE)
+    coef_range <- range(coef_vals + 1.96 * coef_se, coef_vals - 1.96 * coef_se, na.rm = TRUE)
     abs_max <- max(abs(coef_range))
     y_limits <- c(-abs_max - 5, abs_max + 5)
+
+
+    # after all that messing around, make sure we dont skip numbers here
+    while (length(ordered_indices) < (max(ordered_indices) - min(ordered_indices) + 1)) {
+        current_max <- max(ordered_indices)
+        if (!(current_max - 1) %in% ordered_indices) {
+            ordered_indices[ordered_indices == current_max] <- current_max - 1
+        } else {
+            break # Safety break if we can't compress further
+        }
+    }
+
 
     pm <- plot_model(
         model,
@@ -529,7 +573,7 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
             get_pretty_name_v2,
             character(1)
         ))
-    ) + theme_bw(18) + ylab("Coefficient Estimate") + ggtitle(title) +
+    ) + theme_bw(14) + ylab("Coefficient Estimate") + ggtitle(title) +
         scale_y_continuous(limits = y_limits)
 
     pm <- pm + geom_hline(yintercept = 0, linetype = "dashed", color = "grey60")
