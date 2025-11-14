@@ -8,7 +8,11 @@ library(renv)
 
 renv::load(".")
 
-
+# this was decided after reviewing the univariate analyses
+# which still contain these variables
+# they were then removed because of their low relation with discrepancy 
+# and / or their high correlation with other variables
+# to improve model selection stability
 variables_not_in_model <- c("Metastatic",
 "SpecimenSiteGrouped_01",
 "SpecimenSiteGrouped_02",
@@ -28,6 +32,8 @@ variables_not_in_model <- c("Metastatic",
 "Path_Margin Ink_Resection"
 )
 
+# these were removed from the path vs fmi analyses
+# because they a priori do not make sense in that context
 variables_not_in_path_vs_fmi <- c("Path_WSI Quality", "AI_scanning_artifacts_area_%")
 
 library(tidyverse)

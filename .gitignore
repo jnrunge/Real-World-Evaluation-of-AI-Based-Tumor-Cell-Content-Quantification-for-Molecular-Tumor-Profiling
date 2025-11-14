@@ -5,3 +5,7 @@ renv/
 work/
 .Rproj.user
 code.Rproj
+output_backup_*
+*.md5
+.Rhistory
+Rplots.pdf

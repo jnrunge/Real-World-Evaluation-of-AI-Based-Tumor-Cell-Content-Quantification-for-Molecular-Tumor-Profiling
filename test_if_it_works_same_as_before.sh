@@ -65,17 +65,25 @@ else
     echo ""
     diff -u "$BEFORE_MD5" "$AFTER_MD5" || true
     echo ""
+    # Use temp files instead of process substitution
+    TMPDIR="$(mktemp -d)" || error_exit "Failed to create temp dir"
+    trap 'rm -rf "$TMPDIR"' EXIT
+    BEFORE_LIST="$TMPDIR/before.list"
+    AFTER_LIST="$TMPDIR/after.list"
+    awk '{print $2}' "$BEFORE_MD5" | sort > "$BEFORE_LIST"
+    awk '{print $2}' "$AFTER_MD5" | sort > "$AFTER_LIST"
+
     echo "Files only in before:"
-    comm -23 <(awk '{print $2}' "$BEFORE_MD5" | sort) <(awk '{print $2}' "$AFTER_MD5" | sort)
+    comm -23 "$BEFORE_LIST" "$AFTER_LIST"
     echo ""
     echo "Files only in after:"
-    comm -13 <(awk '{print $2}' "$BEFORE_MD5" | sort) <(awk '{print $2}' "$AFTER_MD5" | sort)
+    comm -13 "$BEFORE_LIST" "$AFTER_LIST"
     echo ""
     echo "Files with different checksums:"
-    comm -12 <(awk '{print $2}' "$BEFORE_MD5" | sort) <(awk '{print $2}' "$AFTER_MD5" | sort) | while read file; do
-        before_hash=$(grep -F "$file" "$BEFORE_MD5" | awk '{print $1}')
-        after_hash=$(grep -F "$file" "$AFTER_MD5" | awk '{print $1}')
-        if [[ "$before_hash" != "$after_hash" ]]; then
+    comm -12 "$BEFORE_LIST" "$AFTER_LIST" | while IFS= read -r file; do
+        before_hash="$(grep -F " $file" "$BEFORE_MD5" | awk '{print $1}')"
+        after_hash="$(grep -F " $file" "$AFTER_MD5" | awk '{print $1}')"
+        if [[ -n "$before_hash" && -n "$after_hash" && "$before_hash" != "$after_hash" ]]; then
             echo "  $file"
             echo "    Before: $before_hash"
             echo "    After:  $after_hash"

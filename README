@@ -1,0 +1,11 @@
+This project allows for reproduction of results in the "Real-world performance of AI-based tumor cell content quantification for molecular tumor profiling in diagnostic cancer samples" paper.
+
+
+To just reproduce the output, run
+````bash
+nextflow run main.nf
+````
+
+Or have a look at the main.nf for the order and logic of the pipeline
+
+You can also just go from 00 to 05 manually, but mind the dependencies; 00 and 01 should always be loaded, and 04 for everything above 04.
