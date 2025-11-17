@@ -10,7 +10,7 @@ renv::load(".")
 
 # this was decided after reviewing the univariate analyses
 # which still contain these variables
-# they were then removed because of their low relation with discrepancy 
+# they were then removed because of their low relation with discrepancy
 # and / or their high correlation with other variables
 # to improve model selection stability
 variables_not_in_model <- c("Metastatic",

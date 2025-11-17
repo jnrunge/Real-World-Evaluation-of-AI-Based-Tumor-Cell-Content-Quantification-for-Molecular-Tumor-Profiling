@@ -54,28 +54,7 @@ all_vars <- setdiff(names(data_df_pre_scaling), response_vars)
 for (response_var in response_vars) {
     univ_results <- map_dfr(all_vars, ~ univariate_test(data_df_pre_scaling_NAd_sampletypes, .x, outcome = response_var))
 
-    # Remove duplicate numeric variables with same value and similar names (differing only by up to 4-letter prefix)
-    univ_results <- univ_results %>%
-        group_by(type) %>%
-        mutate(
-            base_var = if_else(
-                type == "numeric",
-                sub("^[A-Za-z0-9_]{0,4}_", "", variable),
-                variable
-            )
-        ) %>%
-        ungroup()
-
-    # For numeric type: keep only the row with the shortest prefix (i.e., the variable name without the prefix)
-    univ_results <- univ_results %>%
-        group_by(type, base_var) %>%
-        filter(
-            type != "numeric" |
-                # For numeric: keep only the row with the variable name exactly equal to base_var
-                !(type == "numeric" & n() > 1 & variable != base_var & all(value == value[1]))
-        ) %>%
-        ungroup() %>%
-        dplyr::select(-base_var)
+    
 
     univ_results$variable <- univ_results$variable %>%
         lapply(get_pretty_name) %>%
