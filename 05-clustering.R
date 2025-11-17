@@ -1,5 +1,8 @@
 classic_no_forced_interactions <- readRDS(file.path(project_dir, "output/processed_data/best_models_classic_no_forced_interactions.rds"))
 
+base_size <- 14
+base_size_poster <- 22
+
 # ---- Helper Functions ----
 
 #' Prepare model variables matrix
@@ -64,13 +67,14 @@ perform_umap <- function(X, n_neighbors = 15, min_dist = 0.1, seed = 123) {
 #' @param umap_df UMAP coordinates
 #' @param output_dir Output directory
 #' @param response_var Response variable name
-plot_umap_embedding <- function(umap_df, output_dir, response_var) {
+#' @param base_size Base font size for plots
+plot_umap_embedding <- function(umap_df, output_dir, response_var, base_size = 14) {
     dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
     
     p <- ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
         geom_point(alpha = 0.7, size = 2) +
         labs(title = "UMAP of Model Variables (scaled)") +
-        theme_minimal()
+        theme_minimal(base_size = base_size)
     
     ggsave(file.path(output_dir, paste0(response_var, "_umap_embedding.png")), 
            plot = p, width = 8, height = 6, dpi = 300)
@@ -102,7 +106,10 @@ perform_dbscan_clustering <- function(umap_df, eps = 0.6, minPts = NULL, output_
 #' @param db_clusters DBSCAN cluster assignments
 #' @param output_dir Output directory
 #' @param response_var Response variable name
-plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var) {
+#' @param base_size Base font size for plots
+#' @param base_size_poster Base font size for poster plots
+plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var, 
+                                 base_size = 14, base_size_poster = 22) {
     umap_df$cluster <- factor(db_clusters)
     
     # Ensure noise cluster (0) is black
@@ -120,13 +127,27 @@ plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var)
     p <- ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = cluster)) +
         geom_point(alpha = 0.7, size = 2) +
         scale_color_manual(values = color_values, breaks = legend_breaks, drop = FALSE) +
-        labs(title = "UMAP of Model Variables (scaled) colored by DBSCAN cluster",
+        labs(title = "UMAP of Model Variables (scaled)",
              color = "Cluster") +
-        theme_bw(14)
+        theme_bw(base_size = base_size)
     
     print(p)
     ggsave(file.path(output_dir, paste0(response_var, "_dbscan_umap_clusters.png")), 
            width = 8, height = 6, dpi = 300)
+    
+    # Create poster version
+    poster_dir <- file.path(output_dir, "poster")
+    dir.create(poster_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    p_poster <- ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = cluster)) +
+        geom_point(alpha = 0.7, size = 2) +
+        scale_color_manual(values = color_values, breaks = legend_breaks, drop = FALSE) +
+        labs(title = "UMAP of Model Variables (scaled)",
+             color = "Cluster") +
+        theme_bw(base_size = base_size_poster)
+    
+    ggsave(file.path(poster_dir, paste0(response_var, "_dbscan_umap_clusters.png")), 
+           plot = p_poster, width = 8, height = 6, dpi = 300)
     
     return(umap_df)
 }
@@ -164,7 +185,10 @@ compute_cluster_statistics <- function(db_clusters, response_var, data_df,
 #' @param cluster_counts Cluster size counts
 #' @param response_var Response variable name
 #' @param output_dir Output directory
-plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_dir) {
+#' @param base_size Base font size for plots
+#' @param base_size_poster Base font size for poster plots
+plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_dir, 
+                                 base_size = 14, base_size_poster = 22) {
     samples_cluster_labels <- cluster_counts %>%
         mutate(cluster_label = paste0("C", cluster, "\n", round(pct, 1), "%"))
     
@@ -206,13 +230,37 @@ plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_d
             color = "white", size = 4, shape = 18, inherit.aes = FALSE
         ) +
         labs(x = "Cluster (size % of data)",
-             y = paste(response_var, "discrepancy")) +
-        theme_bw(14) +
+             y = paste(response_var %>% get_pretty_name())) +
+        theme_bw(base_size = base_size) +
         theme(legend.position = "none") +
         scale_fill_manual(values = color_values, breaks = legend_breaks, drop = FALSE)
     
     ggsave(file.path(output_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.png")), 
            plot = p_summary, width = 8, height = 6, dpi = 300)
+    
+    # Create poster version
+    poster_dir <- file.path(output_dir, "poster")
+    dir.create(poster_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    p_summary_poster <- ggplot(df_all %>% filter(cluster != 0), aes(x = factor(cluster_label, 
+                                               levels = samples_cluster_labels$cluster_label), 
+                                   y = .data[[response_var]], 
+                                   fill = cluster_label)) +
+        geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+        geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+        geom_point(
+            data = mean_pred_by_cluster %>% filter(!startsWith(cluster_label,"C0")),
+            aes(x = cluster_label, y = mean_pred),
+            color = "white", size = 4, shape = 18, inherit.aes = FALSE
+        ) +
+        labs(x = "Cluster (size % of data)",
+             y = paste(response_var %>% get_pretty_name())) +
+        theme_bw(base_size = base_size_poster) +
+        theme(legend.position = "none") +
+        scale_fill_manual(values = color_values, breaks = legend_breaks, drop = FALSE)
+    
+    ggsave(file.path(poster_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.png")), 
+           plot = p_summary_poster, width = 8, height = 6, dpi = 300)
     
     return(df_all)
 }
@@ -239,7 +287,9 @@ export_extreme_discrepancies <- function(df_all, response_var, output_dir) {
 #' @param response_var Response variable name
 #' @param model_list List of models
 #' @param output_dir Output directory
-analyze_term_contributions <- function(df_all, response_var, model_list, output_dir) {
+#' @param base_size Base font size for plots
+analyze_term_contributions <- function(df_all, response_var, model_list, output_dir, 
+                                      base_size = 14) {
     # Exclude noise cluster (0) from contribution plots
     df_all_nn <- df_all %>% filter(cluster != 0)
     if (nrow(df_all_nn) == 0 || length(unique(df_all_nn$cluster)) == 0) {
@@ -282,7 +332,7 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
         scale_x_discrete(labels = function(x) unlist(lapply(x, get_pretty_name))) +
         coord_flip() +
         labs(title = "Per-Term Contributions to the Linear Predictor") +
-        theme_bw(base_size = 14)
+        theme_bw(base_size = base_size)
     
     ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_per_sample.png")), 
            plot = p_contrib, width = 14, height = 6, dpi = 300)
@@ -323,7 +373,7 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
         coord_flip() +
         labs(title = "Per-Term Contributions to the Linear Predictor (All Cluster Members)",
              y = "Contribution", x = "Term") +
-        theme_bw(base_size = 14)
+        theme_bw(base_size = base_size)
     
     ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_all_cluster_members.png")), 
            plot = p_contrib_all, width = 14, height = 8, dpi = 300)
@@ -336,8 +386,9 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
 #' @param model_list List of models
 #' @param X Model variables matrix
 #' @param output_dir Output directory
+#' @param base_size Base font size for plots
 plot_variable_distributions <- function(data_df_renamed, db_clusters, response_var, 
-                                       model_list, X, output_dir) {
+                                       model_list, X, output_dir, base_size = 14) {
     data_df_renamed_only_model_vars <- model_list[[response_var]]$model %>%
         formula() %>%
         as.character()
@@ -382,7 +433,7 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
         facet_wrap(~variable, scales = "free", ncol = 3,
                   labeller = labeller(variable = as_labeller(
                       function(x) unlist(lapply(x, get_pretty_name))))) +
-        theme_bw(14) +
+        theme_bw(base_size = base_size) +
         labs(title = "Distributions of Numeric Model Variables by Cluster",
              x = NULL, y = "Density", fill = "Cluster")
     
@@ -406,7 +457,7 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
                 facet_wrap(~variable, scales = "free", ncol = 3,
                           labeller = labeller(variable = as_labeller(
                               function(x) unlist(lapply(x, get_pretty_name))))) +
-                theme_bw(14) +
+                theme_bw(base_size = base_size) +
                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
                 labs(title = "Distributions of Categorical Model Variables by Cluster",
                      x = NULL, y = "Count", fill = "Cluster")
@@ -426,10 +477,15 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
 #' @param X Model variables matrix
 #' @param output_dir Output directory
 #' @param reverse_colors Logical, if TRUE reverses color direction (blue=high, red=low)
+#' @param base_size Base font size for plots
+#' @param base_size_poster Base font size for poster plots
 create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all, 
                                   response_var, model_list, X, output_dir,
                                   dummified_vars = NULL,
-                                  reverse_colors = FALSE) {
+                                  reverse_colors = FALSE,
+                                  base_size = 14,
+                                  base_size_poster = 22) {
+    # ...existing code to prepare heatmap_df...
     # ...existing code to prepare clustered_data...
     data_df_renamed_only_model_vars <- model_list[[response_var]]$model %>%
         formula() %>%
@@ -680,7 +736,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
             },
             guide = guide_legend(order = 2),
             na.value = "grey90",
-            drop = TRUE  # Changed from FALSE to TRUE
+            drop = TRUE
         ) +
         scale_alpha(range = c(0.8, 1), guide = "none") +
         ggnewscale::new_scale_fill() +
@@ -710,7 +766,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
                 for (i in seq_along(chars)) {
                     out <- paste0(out, chars[i])
                     count <- count + 1
-                    if (count >= 7 && chars[i] == " ") {
+                    if (count >= 6 && chars[i] == " ") {
                         out <- paste0(out, "\n")
                         count <- 0
                     }
@@ -718,7 +774,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
                 out
             })
         }) +
-        theme_minimal(base_size = 14) +
+        theme_minimal(base_size = base_size) +
         theme(
             axis.text.x = element_text(angle = 45, hjust = 1),
             strip.placement = "outside",
@@ -731,6 +787,126 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
     
     ggsave(file.path(output_dir, paste0(response_var, "_cluster_variable_heatmap.png")), 
            width = 18, height = 6)
+    
+    # Create poster version
+    poster_dir <- file.path(output_dir, "poster")
+    dir.create(poster_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    p_poster <- ggplot(heatmap_df, aes(x = factor(cluster), y = variable)) +
+        geom_tile(
+            data = filter(heatmap_df, value_type == "numeric") %>% 
+                mutate(display = factor(display, levels = c("--", "-", "=", "+", "++"))),
+            aes(fill = display, alpha = alpha_val),
+            color = "white", show.legend = TRUE
+        ) +
+        scale_fill_manual(
+            name = NULL,
+            values = if (reverse_colors) {
+                c("#2166ac", "#67a9cf", "#f7f7f7", "#ef8a62", "#b2182b")
+            } else {
+                c("#b2182b", "#ef8a62", "#f7f7f7", "#67a9cf", "#2166ac")
+            },
+            drop = FALSE,
+            guide = guide_legend(order = 1, override.aes = list(alpha = 1))
+        ) +
+        guides(fill = guide_legend(override.aes = list(alpha = 1), title = NULL),
+               alpha = "none") +
+        scale_alpha(range = c(0.8, 1), guide = "none") +
+        ggnewscale::new_scale_fill() +
+        geom_tile(
+            data = {
+                cat_data <- subset(heatmap_df, value_type == "categorical")
+                if (nrow(cat_data) > 0) {
+                    present_levels <- unique(cat_data$display)
+                    all_possible_levels <- c("No", "Yes", "Absent", "Minimal", "Moderate", "Extensive", 
+                                            "Biopsy", "Cytology", "Resection")
+                    ordered_present <- all_possible_levels[all_possible_levels %in% present_levels]
+                    cat_data %>% mutate(display = factor(display, levels = ordered_present))
+                } else {
+                    cat_data
+                }
+            },
+            aes(fill = display, alpha = alpha_val),
+            color = "white"
+        ) +
+        scale_fill_manual(
+            name = NULL,
+            values = {
+                cat_data <- subset(heatmap_df, value_type == "categorical")
+                if (nrow(cat_data) > 0) {
+                    present_levels <- unique(cat_data$display)
+                    pal <- grDevices::colorRampPalette(
+                        if (reverse_colors) c("#2166ac", "#b2182b") else c("#b2182b", "#2166ac")
+                    )(4)
+                    all_colors <- c(
+                        "No" = pal[1],
+                        "Yes" = pal[4],
+                        "Absent" = pal[1],
+                        "Minimal" = pal[2],
+                        "Moderate" = pal[3],
+                        "Extensive" = pal[4],
+                        "Biopsy" = "#1B9E77",
+                        "Cytology" = "#D95F02",
+                        "Resection" = "#7570B3"
+                    )
+                    all_colors[names(all_colors) %in% present_levels]
+                } else {
+                    c()
+                }
+            },
+            guide = guide_legend(order = 2),
+            na.value = "grey90",
+            drop = TRUE
+        ) +
+        scale_alpha(range = c(0.8, 1), guide = "none") +
+        ggnewscale::new_scale_fill() +
+        geom_tile(
+            data = subset(heatmap_df, value_type == response_var) %>% 
+                mutate(variable = get_pretty_name(response_var)),
+            aes(fill = mean_val, alpha = alpha_val),
+            color = "white"
+        ) +
+        scale_fill_gradient2(
+            name = NULL,
+            low = if (reverse_colors) "#2166ac" else "#b2182b",
+            mid = "#f7f7f7",
+            high = if (reverse_colors) "#b2182b" else "#2166ac",
+            midpoint = 0,
+            na.value = "grey90"
+        ) +
+        scale_alpha(range = c(0.8, 1), guide = "none") +
+        labs(title = "Cluster-wise summary of model variables",
+             x = "Cluster", y = "Variable") +
+        scale_y_discrete(labels = function(x) {
+            sapply(x, function(lbl) {
+                pretty <- get_pretty_name(lbl)
+                chars <- unlist(strsplit(pretty, ""))
+                out <- ""
+                count <- 0
+                for (i in seq_along(chars)) {
+                    out <- paste0(out, chars[i])
+                    count <- count + 1
+                    if (count >= 6 && chars[i] == " ") {
+                        out <- paste0(out, "\n")
+                        count <- 0
+                    }
+                }
+                out
+            })
+        }) +
+        theme_minimal(base_size = base_size_poster) +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            strip.placement = "outside",
+            strip.text.y.left = element_text(angle = 0, hjust = 0),
+            panel.spacing.y = unit(0.5, "lines"),
+            legend.position = "bottom"
+        ) +
+        coord_flip() +
+        ylab(NULL)
+    
+    ggsave(file.path(poster_dir, paste0(response_var, "_cluster_variable_heatmap.png")), 
+           plot = p_poster, width = 20, height = 10)
 }
 
 #' Calculate cluster separation metric for TCC discrepancy
@@ -884,6 +1060,8 @@ find_best_clustering <- function(grid_results, response_var) {
 #' @param min_dist UMAP min_dist parameter
 #' @param seed Random seed
 #' @param reverse_colors Logical, if TRUE reverses color direction in heatmap (blue=high, red=low)
+#' @param base_size Base font size for plots
+#' @param base_size_poster Base font size for poster plots
 run_clustering_analysis <- function(response_var, 
                                    data_df, 
                                    data_df_renamed, 
@@ -894,7 +1072,9 @@ run_clustering_analysis <- function(response_var,
                                    n_neighbors = 15,
                                    min_dist = 0.1,
                                    seed = 123,
-                                   reverse_colors = FALSE) {
+                                   reverse_colors = FALSE,
+                                   base_size = 14,
+                                   base_size_poster = 22) {
     
     # Create parameter-specific output directory
     param_dir <- sprintf("%s_eps%.2f_minPts%d_nn%d_md%.2f", 
@@ -918,7 +1098,7 @@ run_clustering_analysis <- function(response_var,
     # 2. UMAP transformation
     message("Step 2: Performing UMAP transformation...")
     umap_df <- perform_umap(X, n_neighbors = n_neighbors, min_dist = min_dist, seed = seed)
-    plot_umap_embedding(umap_df, output_dir, response_var)
+    plot_umap_embedding(umap_df, output_dir, response_var, base_size = base_size)
     
     # 3. DBSCAN clustering
     message("Step 3: Performing DBSCAN clustering...")
@@ -926,7 +1106,8 @@ run_clustering_analysis <- function(response_var,
     
     # 4. Visualize clusters
     message("Step 4: Visualizing clusters...")
-    umap_df <- plot_dbscan_clusters(umap_df, db$cluster, output_dir, response_var)
+    umap_df <- plot_dbscan_clusters(umap_df, db$cluster, output_dir, response_var, 
+                                    base_size = base_size, base_size_poster = base_size_poster)
     
     # 5. Compute cluster statistics
     message("Step 5: Computing cluster statistics...")
@@ -937,7 +1118,8 @@ run_clustering_analysis <- function(response_var,
     
     # 6. Plot cluster boxplots
     message("Step 6: Creating cluster boxplots...")
-    df_all <- plot_cluster_boxplots(df_all, cluster_counts, response_var, output_dir)
+    df_all <- plot_cluster_boxplots(df_all, cluster_counts, response_var, output_dir,
+                                    base_size = base_size, base_size_poster = base_size_poster)
     
     # 7. Export extreme discrepancies
     message("Step 7: Exporting extreme discrepancy counts...")
@@ -945,19 +1127,21 @@ run_clustering_analysis <- function(response_var,
     
     # 8. Analyze term contributions
     message("Step 8: Analyzing term contributions...")
-    analyze_term_contributions(df_all, response_var, model_list, output_dir)
+    analyze_term_contributions(df_all, response_var, model_list, output_dir, base_size = base_size)
     
     # 9. Plot variable distributions
     message("Step 9: Plotting variable distributions...")
     plot_variable_distributions(data_df_renamed, db$cluster, response_var, 
-                                model_list, X, output_dir)
+                                model_list, X, output_dir, base_size = base_size)
     
     # 10. Create cluster heatmap
     message("Step 10: Creating cluster summary heatmap...")
     create_cluster_heatmap(data_df_renamed, db$cluster, df_all, response_var, 
                            model_list, X, output_dir, 
                            dummified_vars = dummified_vars,
-                           reverse_colors = reverse_colors)
+                           reverse_colors = reverse_colors,
+                           base_size = base_size,
+                           base_size_poster = base_size_poster)
 
     message("Clustering analysis complete!")
     
@@ -984,6 +1168,8 @@ run_clustering_analysis <- function(response_var,
 #' @param seed Random seed
 #' @param n_cores Number of cores to use (default: detectCores() - 1)
 #' @param reverse_colors Logical, if TRUE reverses color direction in heatmap (blue=high, red=low)
+#' @param base_size Base font size for plots
+#' @param base_size_poster Base font size for poster plots
 run_clustering_grid_search <- function(response_var,
                                       data_df,
                                       data_df_renamed,
@@ -995,7 +1181,9 @@ run_clustering_grid_search <- function(response_var,
                                       min_dist_values = c(0.05, 0.1, 0.2),
                                       seed = 123,
                                       n_cores = NULL,
-                                      reverse_colors = FALSE) {
+                                      reverse_colors = FALSE,
+                                      base_size = 14,
+                                      base_size_poster = 22) {
     
     # Create parameter grid
     param_grid <- expand.grid(
@@ -1021,7 +1209,7 @@ run_clustering_grid_search <- function(response_var,
     
     # Export necessary objects and functions to cluster
     clusterExport(cl, c("response_var", "data_df", "data_df_renamed", "model_list", 
-                       "output_base_dir", "seed", "reverse_colors",
+                       "output_base_dir", "seed", "reverse_colors", "base_size", "base_size_poster",
                        "run_clustering_analysis", "prepare_model_variables",
                        "perform_umap", "plot_umap_embedding", "perform_dbscan_clustering",
                        "plot_dbscan_clusters", "compute_cluster_statistics",
@@ -1064,7 +1252,9 @@ run_clustering_grid_search <- function(response_var,
                     n_neighbors = params$n_neighbors,
                     min_dist = params$min_dist,
                     seed = seed,
-                    reverse_colors = reverse_colors
+                    reverse_colors = reverse_colors,
+                    base_size = base_size,
+                    base_size_poster = base_size_poster
                 )
                 result
             }, error = function(e) {

@@ -1,5 +1,11 @@
+base_size <- 14
+base_size_poster <- 22
+
+
 output_dir <- file.path(project_dir, "output/model_plots/")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+output_dir_poster <- file.path(project_dir, "output/model_plots/poster/")
+dir.create(output_dir_poster, showWarnings = FALSE, recursive = TRUE)
 
 plot_main_effect <- function(
     model, model_data, var_base, get_pretty_name_v2 = identity, ylab = "Predicted Discrepancy",
@@ -164,7 +170,7 @@ plot_main_effect <- function(
                     if (!is.null(var_base_2)) paste("by", get_pretty_name_v2(var_base_2)) else ""
                 )
             ) +
-            ggplot2::theme_bw(14) +
+            ggplot2::theme_bw(base_size) +
             ggplot2::coord_cartesian(ylim = y_limits)
 
         if (is.null(var_base_2)) {
@@ -260,7 +266,7 @@ plot_main_effect <- function(
                 title = paste(title_prefix, get_pretty_name_v2(var_base))
             ) +
             scale_x_continuous(labels = scales::comma) +
-            theme_bw(14) +
+            theme_bw(base_size) +
             coord_cartesian(ylim = y_limits)
         return(p)
     }
@@ -431,7 +437,7 @@ plot_main_effect <- function(
             y = ylab,
             title = paste(title_prefix, get_pretty_name_v2(var_base), "by", get_pretty_name_v2(var_base_2))
         ) +
-        theme_bw(14) +
+        theme_bw(base_size) +
         coord_cartesian(ylim = c(-100, 100))
     return(p)
 }
@@ -573,7 +579,7 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
             get_pretty_name_v2,
             character(1)
         ))
-    ) + theme_bw(14) + ylab("Coefficient Estimate") + ggtitle(title) +
+    ) + theme_bw(base_size) + ylab("Coefficient Estimate") + ggtitle(title) +
         scale_y_continuous(limits = y_limits)
 
     pm <- pm + geom_hline(yintercept = 0, linetype = "dashed", color = "grey60")
@@ -637,7 +643,24 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
             size = 5, fontface = "bold", color = "black"
         )
 
+
+    pm <- pm + theme_bw(base_size) + 
+    theme(legend.position = "bottom")
     pm
+}
+
+# Helper function to save both regular and poster versions
+save_plot_both <- function(plot_obj, filename, width, height, width_poster = NULL, height_poster = NULL, dpi = 300) {
+    # Use regular dimensions for poster if not specified
+    if (is.null(width_poster)) width_poster <- width
+    if (is.null(height_poster)) height_poster <- height
+    
+    # Regular version
+    ggsave(paste0(output_dir, filename), plot_obj, width = width, height = height, dpi = dpi)
+    
+    # Poster version - increase base_size
+    plot_poster <- plot_obj + theme_bw(base_size_poster)+ theme(legend.position = "bottom")
+    ggsave(paste0(output_dir_poster, filename), plot_poster, width = width_poster, height = height_poster, dpi = dpi)
 }
 
 # Example usage for Path vs AI model
@@ -647,7 +670,8 @@ pm <- plot_model_coefficients(
     get_pretty_name_v2,
     title = "TCC Discrepancy Pathologist vs AI"
 )
-ggsave(paste0(output_dir, "TCC_discrepancy_model_path_vs_ai.pdf"), pm, width = 8, height = 10, dpi = 300)
+
+save_plot_both(pm, "TCC_discrepancy_model_path_vs_ai.pdf", width = 8, height = 10, width_poster=10, height_poster=12)
 
 # Example usage for FMI vs AI model
 pm_fmi_vs_ai <- plot_model_coefficients(
@@ -656,7 +680,7 @@ pm_fmi_vs_ai <- plot_model_coefficients(
     get_pretty_name_v2,
     title = "TCC Discrepancy FMI vs AI"
 )
-ggsave(paste0(output_dir, "TCC_discrepancy_model_fmi_vs_ai.pdf"), pm_fmi_vs_ai, width = 12, height = 16, dpi = 300)
+save_plot_both(pm_fmi_vs_ai, "TCC_discrepancy_model_fmi_vs_ai.pdf", width = 12, height = 16, width_poster=10, height_poster=21)
 
 # Example usage for Path vs FMI model
 pm_path_vs_fmi <- plot_model_coefficients(
@@ -666,7 +690,7 @@ pm_path_vs_fmi <- plot_model_coefficients(
     title = "TCC Discrepancy Pathologist vs FMI"
 )
 
-ggsave(paste0(output_dir, "TCC_discrepancy_model_path_vs_fmi.pdf"), pm_path_vs_fmi, width = 8, height = 10, dpi = 300)
+save_plot_both(pm_path_vs_fmi, "TCC_discrepancy_model_path_vs_fmi.pdf", width = 8, height = 10, width_poster=10, height_poster=12)
 
 
 
@@ -773,13 +797,12 @@ for (model_name in names(classic_no_forced_interactions)) {
                 
                 # Create safe filename
                 safe_filename <- paste0(
-                    output_dir,
                     model_name, "_interaction_",
                     make.names(var_base), "_by_",
                     make.names(var_base_2), ".pdf"
                 )
                 
-                ggsave(safe_filename, p, width = 11, height = 8, dpi = 300)
+                save_plot_both(p, safe_filename, width = 11, height = 8, width_poster=12)
                 cat("  Saved interaction plot:", safe_filename, "\n")
             }, error = function(e) {
                 cat("  Error plotting interaction", var_base, ":", var_base_2, "-", e$message, "\n")
@@ -804,12 +827,11 @@ for (model_name in names(classic_no_forced_interactions)) {
                 
                 # Create safe filename
                 safe_filename <- paste0(
-                    output_dir,
                     model_name, "_main_effect_",
                     make.names(var_base), ".pdf"
                 )
                 
-                ggsave(safe_filename, p, width = 8, height = 8, dpi = 300)
+                save_plot_both(p, safe_filename, width = 8, height = 8, width_poster=12)
                 cat("  Saved main effect plot:", safe_filename, "\n")
             }, error = function(e) {
                 cat("  Error plotting main effect", var_base, "-", e$message, "\n")

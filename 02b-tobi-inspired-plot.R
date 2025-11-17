@@ -1,3 +1,7 @@
+base_size <- 14
+base_size_poster <- 22
+
+
 source(file.path(project_dir, "00-universal-dependencies.R"))
 
 # pretty & simple tobi-inspired plots
@@ -37,10 +41,10 @@ add_identity_line_colored_corner <- function(data, mapping, ...) {
 
 
 
-# Function to compute correlation and map to color
-get_r_color <- function(x, y) {
+# Function to compute correlation and map to color for box display
+get_corr_color_for_box <- function(x, y) {
     r <- cor(x, y, use = "complete.obs")
-    # Map R² to color: blue (0), white (0.5), red (1)
+    # Map correlation to color: blue (low correlation), white (mid), red (high correlation)
     col <- scales::col_numeric(
         palette = c("steelblue", "white", "firebrick"),
         domain = c(0.15, 0.85)
@@ -48,15 +52,15 @@ get_r_color <- function(x, y) {
     list(r = r, col = col)
 }
 
-# Custom upper panel: only show R² box in top right
-add_r2_box_panel <- function(data, mapping, ...) {
+# Custom upper panel: show correlation (r) value in colored box
+add_corr_box_panel <- function(data, mapping, ...) {
     x <- eval_data_col(data, mapping$x)
     y <- eval_data_col(data, mapping$y)
     if (identical(mapping$x, mapping$y)) {
         return(ggplot() +
             theme_void())
     }
-    r_info <- get_r_color(x, y)
+    r_info <- get_corr_color_for_box(x, y)
     # Box size and position
 
     sq_xmin <- 15
@@ -84,12 +88,12 @@ add_r2_box_panel <- function(data, mapping, ...) {
 p_matrix <- ggpairs(
     df,
     columns = 1:3,
-    upper = list(continuous = add_r2_box_panel),
+    upper = list(continuous = add_corr_box_panel),
     diag = list(continuous = wrap("barDiag", fill = "#72c2ff", color = "#013d6b", bins = 30)),
     lower = list(continuous = add_identity_line_colored_corner),
     columnLabels = c("AI", "Patho", "FMI")
 ) +
-    theme_bw(14) +
+    theme_bw(base_size) +  # was theme_bw(14)
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
     ggtitle("All combined")
 
@@ -129,12 +133,12 @@ p_matrix_tissue_list <- map(
         pm <- ggpairs(
             df_sub,
             columns = 1:3,
-            upper = list(continuous = add_r2_box_panel),
+            upper = list(continuous = add_corr_box_panel),
             diag = list(continuous = wrap("barDiag", fill = "#72c2ff", color = "#013d6b", bins = 30)),
             lower = list(continuous = add_identity_line_colored_corner),
             columnLabels = c("AI", "Patho", "FMI")
         ) +
-            theme_bw(14) +
+            theme_bw(base_size) +  # was theme_bw(14)
             theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
             ggtitle(paste(tissue, "CA"))
         for (i in 1:3) {
@@ -164,7 +168,6 @@ p_matrix_tissue_list <- map(
     }
 )
 
-# Optionally, combine all plots (original + by tissue) using patchwork
 # Combine all plots (original + by tissue) in a grid with ncol = ceiling((1 + length(p_matrix_tissue_list)) / 2)
 all_pmatrices <- c(list(p_matrix), p_matrix_tissue_list)
 n_plots <- length(all_pmatrices)
@@ -215,14 +218,14 @@ sampletype_discrepancy_hist <- ggplot(data_df_complete, aes(x = TCC_Patho_minus_
     geom_histogram(position = "dodge", bins = 30, color = "#013d6b", alpha = 0.85) +
     facet_wrap(~`Sample type`, ncol = 1) +
     scale_fill_brewer(palette = "Dark2") +
-    theme_bw(14) +
+    theme_bw(base_size) +  # was theme_bw(14)
     theme(
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         strip.background = element_rect(fill = "#e3f0fc", color = "black"),
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 16),
-        plot.title = element_text(size = 18, face = "bold"),
+        axis.text = element_text(size = base_size),        # was 14
+        axis.title = element_text(size = base_size + 2),   # was 16
+        plot.title = element_text(size = base_size + 4, face = "bold"),  # was 18
         legend.position = "none"
     ) +
     labs(
@@ -252,4 +255,144 @@ combined_with_hist <- (combined_p_matrix | sampletype_discrepancy_hist_noleg) +
 
 # Show or save the combined plot
 ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations_with_sampletype_hist.PDF"), combined_with_hist, width = 15, height = 9, dpi = 300)
+
+# -----------------------------
+# Poster variants (base_size_poster = 20)
+# -----------------------------
+dir.create(file.path(project_dir, "output/tobi_plots/poster"), showWarnings = FALSE, recursive = TRUE)
+
+# Poster overall plot matrix
+p_matrix_poster <- ggpairs(
+    df,
+    columns = 1:3,
+    upper = list(continuous = add_corr_box_panel),
+    diag = list(continuous = wrap("barDiag", fill = "#72c2ff", color = "#013d6b", bins = 30)),
+    lower = list(continuous = add_identity_line_colored_corner),
+    columnLabels = c("AI", "Patho", "FMI")
+) +
+    theme_bw(base_size_poster) +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+    ggtitle("All combined")
+
+# Align axis limits and grids (same as non-poster)
+for (i in 1:3) {
+    for (j in 1:3) {
+        if (i != j) {
+            p_matrix_poster[i, j] <- p_matrix_poster[i, j] +
+                scale_x_continuous(limits = c(0, 100)) +
+                scale_y_continuous(limits = c(0, 100)) +
+                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+        } else {
+            p_matrix_poster[i, j] <- p_matrix_poster[i, j] +
+                scale_x_continuous(limits = c(0, 100)) +
+                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+        }
+    }
+}
+p_matrix_poster <- p_matrix_poster + theme(strip.background = element_rect(fill = "#e3f0fc", color = "black"))
+p_matrix_poster <- p_matrix_poster + theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank()
+)
+
+# Poster faceted-by-tissue
+p_matrix_tissue_list_poster <- purrr::map(
+    tissue_levels,
+    function(tissue) {
+        df_sub <- df %>% dplyr::filter(Cancer == tissue)
+        pm <- ggpairs(
+            df_sub,
+            columns = 1:3,
+            upper = list(continuous = add_corr_box_panel),
+            diag = list(continuous = wrap("barDiag", fill = "#72c2ff", color = "#013d6b", bins = 30)),
+            lower = list(continuous = add_identity_line_colored_corner),
+            columnLabels = c("AI", "Patho", "FMI")
+        ) +
+            theme_bw(base_size_poster) +
+            theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+            ggtitle(paste(tissue, "CA"))
+        for (i in 1:3) {
+            for (j in 1:3) {
+                if (i != j) {
+                    pm[i, j] <- pm[i, j] +
+                        scale_x_continuous(limits = c(0, 100)) +
+                        scale_y_continuous(limits = c(0, 100)) +
+                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+                } else {
+                    pm[i, j] <- pm[i, j] +
+                        scale_x_continuous(limits = c(0, 100)) +
+                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+                }
+            }
+        }
+        pm <- pm + theme(strip.background = element_rect(fill = "#e3f0fc", color = "black"))
+        pm <- pm + theme(
+            axis.title.x = element_blank(),
+            axis.title.y = element_blank(),
+            axis.text.x = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.ticks.y = element_blank()
+        )
+        pm
+    }
+)
+
+# Poster combined matrices
+all_pmatrices_poster <- c(list(p_matrix_poster), p_matrix_tissue_list_poster)
+n_plots_poster <- length(all_pmatrices_poster)
+ncol_grid_poster <- ceiling(n_plots_poster / 2)
+
+combined_p_matrix_poster <- patchwork::wrap_elements(GGally::ggmatrix_gtable(all_pmatrices_poster[[1]]))
+if (n_plots_poster > 1) {
+    for (i in 2:n_plots_poster) {
+        combined_p_matrix_poster <- combined_p_matrix_poster | patchwork::wrap_elements(GGally::ggmatrix_gtable(all_pmatrices_poster[[i]]))
+        if ((i %% ncol_grid_poster) == 0 && i != n_plots_poster) {
+            combined_p_matrix_poster <- combined_p_matrix_poster / NULL
+        }
+    }
+}
+if (n_plots_poster == 1) {
+    combined_p_matrix_poster <- combined_p_matrix_poster
+} else {
+    combined_p_matrix_poster <- combined_p_matrix_poster + patchwork::plot_layout(ncol = ncol_grid_poster, nrow = ceiling(n_plots_poster / ncol_grid_poster))
+}
+
+# Poster histogram
+sampletype_discrepancy_hist_poster <- ggplot(data_df_complete, aes(x = TCC_Patho_minus_TCC_AI, fill = `Sample type`)) +
+    geom_histogram(position = "dodge", bins = 30, color = "#013d6b", alpha = 0.85) +
+    facet_wrap(~`Sample type`, ncol = 1) +
+    scale_fill_brewer(palette = "Dark2") +
+    theme_bw(base_size_poster) +
+    theme(
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(fill = "#e3f0fc", color = "black"),
+        axis.text = element_text(size = base_size_poster),
+        axis.title = element_text(size = base_size_poster + 2),
+        plot.title = element_text(size = base_size_poster + 4, face = "bold"),
+        legend.position = "none"
+    ) +
+    labs(
+        x = "«Path» - «AI»",
+        y = "Frequency (n)",
+        title = NULL
+    ) +
+    guides(
+        x = guide_axis(minor.ticks = TRUE),
+        y = guide_axis(minor.ticks = TRUE)
+    ) +
+    scale_x_continuous(limits = c(-80, 80), breaks = round(seq(-80, 80, length.out = 5)), minor_breaks = round(seq(-80, 80, by = 10))) +
+    scale_y_continuous(limits = c(0, 30), breaks = seq(0, 30, by = 5), minor_breaks = NULL)
+
+# Poster combined with histogram (no legend)
+combined_with_hist_poster <- (combined_p_matrix_poster | sampletype_discrepancy_hist_poster) +
+    patchwork::plot_layout(widths = c(0.85, 0.15))
+
+ggsave(file.path(project_dir, "output/tobi_plots/poster/TCC_correlations_with_sampletype_hist.PDF"),
+       combined_with_hist_poster, width = 16, height = 10, dpi = 300)
 
