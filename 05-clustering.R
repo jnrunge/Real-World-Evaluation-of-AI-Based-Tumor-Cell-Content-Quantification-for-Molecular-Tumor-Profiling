@@ -19,11 +19,31 @@ prepare_model_variables <- function(response_var, data_df_renamed, model_list) {
     X <- data_df_renamed %>%
         dplyr::select(all_of(model_vars[!grepl(":", model_vars, fixed = TRUE)])) %>%
         mutate(
+            # characters -> factors
             across(where(is.character), as.factor),
-            across(where(is.factor), as.numeric)
+            # ordered factors -> numeric codes
+            across(where(is.ordered), ~ as.numeric(.x)),
+            # logicals -> numeric (0/1) to ensure numeric matrix downstream
+            across(where(is.logical), ~ as.numeric(.x))
         )
-    
-    return(X)
+
+    # Identify unordered factors to be dummified
+    fac_cols <- names(X)[sapply(X, is.factor)]
+    dummified_vars <- if (length(fac_cols) > 0) fac_cols else NULL
+
+    # Create full dummy variables for all remaining (unordered) factors: one column per level
+    if (!is.null(dummified_vars)) {
+        contr_list <- lapply(X[dummified_vars], function(x) contrasts(x, contrasts = FALSE))
+        X <- as.data.frame(
+            model.matrix(~ . - 1, data = X, contrasts.arg = contr_list),
+            stringsAsFactors = FALSE
+        )
+    } else {
+        # Ensure pure numeric frame if no factors present
+        X <- X %>% mutate(across(where(is.integer), as.numeric))
+    }
+
+    return(list(X = X, dummified_vars = dummified_vars))
 }
 
 #' Perform UMAP transformation
@@ -270,7 +290,7 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
     # Contributions for all cluster members
     df_all_contrib <- df_all_nn
     names(df_all_contrib) <- make.names(names(df_all_contrib), unique = TRUE)
-    
+     
     contr_mat_all <- predict(
         model_list[[response_var]]$model,
         newdata = df_all_contrib,
@@ -333,6 +353,9 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
                                        !grepl(":", data_df_renamed_only_model_vars, fixed = TRUE)])) %>%
         mutate(cluster = factor(db_clusters))
     
+
+    cluster_0 <- which(clustered_data$cluster == "0")
+
     # Exclude noise cluster (0)
     clustered_data <- clustered_data %>%
         filter(cluster != "0") %>%
@@ -340,7 +363,7 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
     
     missing_cols <- setdiff(names(X), names(clustered_data))
     if (length(missing_cols) > 0) {
-        clustered_data <- bind_cols(clustered_data, X[missing_cols])
+        clustered_data <- bind_cols(clustered_data, X[-cluster_0, missing_cols])
     }
     
     # Numeric variables
@@ -405,6 +428,7 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
 #' @param reverse_colors Logical, if TRUE reverses color direction (blue=high, red=low)
 create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all, 
                                   response_var, model_list, X, output_dir,
+                                  dummified_vars = NULL,
                                   reverse_colors = FALSE) {
     # ...existing code to prepare clustered_data...
     data_df_renamed_only_model_vars <- model_list[[response_var]]$model %>%
@@ -418,16 +442,38 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         str_replace_all(" ", "")
     
     clustered_data <- dplyr::select(data_df_renamed, 
-                                   all_of(data_df_renamed_only_model_vars[
-                                       !grepl(":", data_df_renamed_only_model_vars, fixed = TRUE)])) %>%
-        mutate(cluster = factor(db_clusters)) %>%
-        # Exclude noise cluster (0)
+                                   all_of(c(dummified_vars,data_df_renamed_only_model_vars[
+                                       !grepl(":", data_df_renamed_only_model_vars, fixed = TRUE)]))) %>%
+        mutate(cluster = factor(db_clusters))
+
+    # which 0s
+    cluster_0 <- which(clustered_data$cluster == "0")
+
+    # Exclude noise cluster (0)
+    clustered_data <- clustered_data %>%
         filter(cluster != "0") %>%
         droplevels()
     
     missing_cols <- setdiff(names(X), names(clustered_data))
+
+    # Remove dummified variable columns from missing_cols
+        if (!is.null(dummified_vars) && length(missing_cols) > 0) {
+            # Get all possible dummy column names from dummified_vars
+            dummy_patterns <- unlist(lapply(dummified_vars, function(var) {
+                if (var %in% names(data_df_renamed)) {
+                    unique_vals <- unique(as.character(data_df_renamed[[var]]))
+                    paste0(var, unique_vals)
+                } else {
+                    character(0)
+                }
+            }))
+            
+            # Remove missing_cols that match any dummy pattern
+            missing_cols <- setdiff(missing_cols, dummy_patterns)
+        }
+
     if (length(missing_cols) > 0) {
-        clustered_data <- bind_cols(clustered_data, X[missing_cols])
+        clustered_data <- bind_cols(clustered_data, X[-cluster_0,missing_cols])
     }
     
     # Numeric variables summary
@@ -475,6 +521,10 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
     fac_cols <- names(clustered_data)[
         sapply(clustered_data, is.factor) & names(clustered_data) != "cluster"
     ]
+
+    if(!is.null(dummified_vars)){
+    fac_cols <- c(fac_cols, dummified_vars)
+    }
     
     cat_summary <- if (length(fac_cols) > 0) {
         df_cat <- clustered_data %>%
@@ -579,29 +629,58 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         scale_alpha(range = c(0.8, 1), guide = "none") +
         ggnewscale::new_scale_fill() +
         geom_tile(
-            data = subset(heatmap_df, value_type == "categorical") %>% 
-                mutate(display = factor(display, levels = c("No", "Yes", "Absent", "Minimal", "Moderate", "Extensive"))),
+            data = {
+                cat_data <- subset(heatmap_df, value_type == "categorical")
+                if (nrow(cat_data) > 0) {
+                    # Get unique levels actually present in the data
+                    present_levels <- unique(cat_data$display)
+                    # Define order of levels (only those present)
+                    all_possible_levels <- c("No", "Yes", "Absent", "Minimal", "Moderate", "Extensive", 
+                                            "Biopsy", "Cytology", "Resection")
+                    ordered_present <- all_possible_levels[all_possible_levels %in% present_levels]
+                    cat_data %>% mutate(display = factor(display, levels = ordered_present))
+                } else {
+                    cat_data
+                }
+            },
             aes(fill = display, alpha = alpha_val),
             color = "white"
         ) +
         scale_fill_manual(
             name = NULL,
-            values = (function() {
-                pal <- grDevices::colorRampPalette(
-                    if (reverse_colors) c("#2166ac", "#b2182b") else c("#b2182b", "#2166ac")
-                )(4)
-                c(
-                    "No" = pal[1],
-                    "Yes" = pal[4],
-                    "Absent" = pal[1],
-                    "Minimal" = pal[2],
-                    "Moderate" = pal[3],
-                    "Extensive" = pal[4]
-                )
-            })(),
+            values = {
+                # Get levels actually present in categorical data
+                cat_data <- subset(heatmap_df, value_type == "categorical")
+                if (nrow(cat_data) > 0) {
+                    present_levels <- unique(cat_data$display)
+                    
+                    # Generate palette for ordinal variables
+                    pal <- grDevices::colorRampPalette(
+                        if (reverse_colors) c("#2166ac", "#b2182b") else c("#b2182b", "#2166ac")
+                    )(4)
+                    
+                    # Full color mapping
+                    all_colors <- c(
+                        "No" = pal[1],
+                        "Yes" = pal[4],
+                        "Absent" = pal[1],
+                        "Minimal" = pal[2],
+                        "Moderate" = pal[3],
+                        "Extensive" = pal[4],
+                        "Biopsy" = "#1B9E77",
+                        "Cytology" = "#D95F02",
+                        "Resection" = "#7570B3"
+                    )
+                    
+                    # Return only colors for present levels
+                    all_colors[names(all_colors) %in% present_levels]
+                } else {
+                    c()
+                }
+            },
             guide = guide_legend(order = 2),
             na.value = "grey90",
-            drop = FALSE
+            drop = TRUE  # Changed from FALSE to TRUE
         ) +
         scale_alpha(range = c(0.8, 1), guide = "none") +
         ggnewscale::new_scale_fill() +
@@ -832,8 +911,10 @@ run_clustering_analysis <- function(response_var,
     
     # 1. Prepare model variables
     message("Step 1: Preparing model variables...")
-    X <- prepare_model_variables(response_var, data_df_renamed, model_list)
-    
+    vars <- prepare_model_variables(response_var, data_df_renamed, model_list)
+    X <- vars$X
+    dummified_vars <- vars$dummified_vars
+
     # 2. UMAP transformation
     message("Step 2: Performing UMAP transformation...")
     umap_df <- perform_umap(X, n_neighbors = n_neighbors, min_dist = min_dist, seed = seed)
@@ -874,8 +955,10 @@ run_clustering_analysis <- function(response_var,
     # 10. Create cluster heatmap
     message("Step 10: Creating cluster summary heatmap...")
     create_cluster_heatmap(data_df_renamed, db$cluster, df_all, response_var, 
-                          model_list, X, output_dir, reverse_colors = reverse_colors)
-    
+                           model_list, X, output_dir, 
+                           dummified_vars = dummified_vars,
+                           reverse_colors = reverse_colors)
+
     message("Clustering analysis complete!")
     
     return(list(
