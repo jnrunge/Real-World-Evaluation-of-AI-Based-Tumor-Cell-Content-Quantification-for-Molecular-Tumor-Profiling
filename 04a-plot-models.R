@@ -1,12 +1,77 @@
+################################################################################
+# Script: 04a-plot-models.R
+# Purpose: Generate visualizations for best linear models
+# Author: Jan-Niklas Runge
+# 
+# Description:
+#   - Creates coefficient plots
+#   - Generates main effect and interaction plots for all model terms
+#   - Handles numeric, factor, and interaction terms appropriately
+# 
+# Outputs:
+#   - output/model_plots/TCC_discrepancy_model_*.pdf: Coefficient plots with R²
+#   - output/model_plots/*_main_effect_*.pdf: Main effect plots
+#   - output/model_plots/*_interaction_*.pdf: Interaction plots
+#   - output/model_plots/poster/*.pdf: High-resolution poster versions
+# 
+# Dependencies: See 00-universal-dependencies.R for package requirements
+################################################################################
+
+# Configuration ----------------------------------------------------------------
+# Plot font sizes
 base_size <- 14
 base_size_poster <- 22
 
+# Plot dimensions (base values; adjusted per plot type)
+DEFAULT_WIDTH <- 8
+DEFAULT_HEIGHT <- 8
+COEFF_PLOT_WIDTH <- 8
+COEFF_PLOT_HEIGHT <- 10
+INTERACTION_PLOT_WIDTH <- 11
+INTERACTION_PLOT_HEIGHT <- 8
+PLOT_DPI <- 300
 
+# Y-axis limits for discrepancy predictions
+DISCREPANCY_YLIM <- c(-100, 100)
+
+# Number of grouping levels for continuous variables in interaction plots
+N_GROUPS <- 4
+
+# Color palettes
+# Color-blind friendly palette (Okabe-Ito)
+CB_PALETTE <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+# Annotator colors: Intercept (grey), AI (blue), Pathologist (purple)
+SCALE_INTERCEPT_AI_PATH <- c("Intercept" = "#797979", "FALSE" = "#A767FF", "TRUE" = "#1041FF")
+
+# Create output directories ----------------------------------------------------
 output_dir <- file.path(project_dir, "output/model_plots/")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 output_dir_poster <- file.path(project_dir, "output/model_plots/poster/")
 dir.create(output_dir_poster, showWarnings = FALSE, recursive = TRUE)
 
+# Helper functions -------------------------------------------------------------
+
+#' Plot main effect or interaction for a model term
+#' 
+#' @param model Linear model object
+#' @param model_data Scaled model data
+#' @param var_base Character string, primary variable name
+#' @param get_pretty_name_v2 Function to convert variable names
+#' @param ylab Y-axis label (default: "Predicted Discrepancy")
+#' @param title_prefix Title prefix (default: "Main Effect of")
+#' @param var_base_2 Character string, optional grouping variable
+#' @param var_base_2_values Numeric/character vector, values for grouping variable
+#' @param palette Color palette for grouping variable
+#' @param var_base_2_correction Character string, optional correction variable
+#' @param var_base_2_correction_values Numeric vector, correction values
+#' @param unscale_center Logical, use raw (unscaled) data for x-axis
+#' @param y_limits Numeric vector of length 2, y-axis limits
+#' @return ggplot object
+#' @details 
+#'   - Numeric var_base: line plot with confidence ribbon
+#'   - Factor var_base: boxplot of predictive distribution
+#'   - Interaction: multiple lines/boxplots colored by var_base_2
 plot_main_effect <- function(
     model, model_data, var_base, get_pretty_name_v2 = identity, ylab = "Predicted Discrepancy",
     title_prefix = "Main Effect of", var_base_2 = NULL, var_base_2_values = NULL, palette = NULL,
@@ -442,6 +507,14 @@ plot_main_effect <- function(
     return(p)
 }
 
+#' Convert variable names to pretty display names (extended version)
+#' 
+#' @param var Character string, variable name
+#' @return Character string, formatted display name
+#' @details 
+#'   - Handles .L/.C/.Q suffixes for ordered factors (linear/cubic/quadratic contrasts)
+#'   - Processes interaction terms
+#'   - Uses pretty_names lookup table
 get_pretty_name_v2 <- function(var) {
     # Remove .L, .C, .Q suffixes (for ordered factors)
     var_clean <- sub("\\.(L|C|Q)$", "", var)
@@ -493,7 +566,18 @@ get_pretty_name_v2 <- function(var) {
     pretty
 }
 
-# Helper function to plot model coefficients with pretty names, AI/Path coloring, and R² box
+#' Plot model coefficients with pretty names, AI/Path coloring, and R² annotation
+#' 
+#' @param model Linear model object
+#' @param importance_summary Importance summary from best_models output
+#' @param get_pretty_name_v2 Function to convert variable names
+#' @param title Character string, plot title
+#' @return ggplot object
+#' @details
+#'   - Orders coefficients by importance
+#'   - Colors by source: Intercept (grey), AI (blue), Pathologist (purple)
+#'   - Adds R² box 
+#'   - Symmetric y-axis limits around zero
 plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v2, title = "TCC Discrepancy Model") {
     coef_names <- names(model$coefficients[-1])
     orig_vars <- importance_summary$orig_vars
@@ -649,7 +733,15 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
     pm
 }
 
-# Helper function to save both regular and poster versions
+#' Save both regular and poster versions of a plot
+#' 
+#' @param plot_obj ggplot object
+#' @param filename Character string, output filename
+#' @param width Numeric, plot width in inches
+#' @param height Numeric, plot height in inches
+#' @param width_poster Numeric, poster width (defaults to width)
+#' @param height_poster Numeric, poster height (defaults to height)
+#' @param dpi Numeric, resolution
 save_plot_both <- function(plot_obj, filename, width, height, width_poster = NULL, height_poster = NULL, dpi = 300) {
     # Use regular dimensions for poster if not specified
     if (is.null(width_poster)) width_poster <- width
@@ -663,40 +755,16 @@ save_plot_both <- function(plot_obj, filename, width, height, width_poster = NUL
     ggsave(paste0(output_dir_poster, filename), plot_poster, width = width_poster, height = height_poster, dpi = dpi)
 }
 
-# Example usage for Path vs AI model
-pm <- plot_model_coefficients(
-    classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
-    classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$importance_summary,
-    get_pretty_name_v2,
-    title = "TCC Discrepancy Pathologist vs AI"
-)
-
-save_plot_both(pm, "TCC_discrepancy_model_path_vs_ai.pdf", width = 8, height = 10, width_poster=10, height_poster=12)
-
-# Example usage for FMI vs AI model
-pm_fmi_vs_ai <- plot_model_coefficients(
-    classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$model,
-    classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$importance_summary,
-    get_pretty_name_v2,
-    title = "TCC Discrepancy FMI vs AI"
-)
-save_plot_both(pm_fmi_vs_ai, "TCC_discrepancy_model_fmi_vs_ai.pdf", width = 12, height = 16, width_poster=10, height_poster=21)
-
-# Example usage for Path vs FMI model
-pm_path_vs_fmi <- plot_model_coefficients(
-    classic_no_forced_interactions$TCC_Patho_minus_TCC_FMI$model,
-    classic_no_forced_interactions$TCC_Patho_minus_TCC_FMI$importance_summary,
-    get_pretty_name_v2,
-    title = "TCC Discrepancy Pathologist vs FMI"
-)
-
-save_plot_both(pm_path_vs_fmi, "TCC_discrepancy_model_path_vs_fmi.pdf", width = 8, height = 10, width_poster=10, height_poster=12)
-
-
-
-
-
-# Helper function to get sensible grouping values for a variable
+#' Get sensible grouping values for a variable
+#' 
+#' @param var_name Character string, variable name
+#' @param data Data frame containing variable
+#' @param n_groups Integer, number of groups to create
+#' @return Character or numeric vector of grouping values
+#' @details
+#'   - Factors: returns all levels or evenly sampled subset
+#'   - Numeric: returns quantiles (10th to 90th percentile)
+#'   - Rounds numeric values to sensible precision
 get_grouping_values <- function(var_name, data, n_groups = 4) {
     var_data <- data[[var_name]]
     if (is.factor(var_data)) {
@@ -731,9 +799,42 @@ get_grouping_values <- function(var_name, data, n_groups = 4) {
     }
 }
 
+# Generate coefficient plots ---------------------------------------------------
+message("\n=== Generating coefficient plots ===")
+
+# Path vs AI model
+pm <- plot_model_coefficients(
+    classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
+    classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$importance_summary,
+    get_pretty_name_v2,
+    title = "TCC Discrepancy Pathologist vs AI"
+)
+save_plot_both(pm, "TCC_discrepancy_model_path_vs_ai.pdf", width = COEFF_PLOT_WIDTH, height = COEFF_PLOT_HEIGHT, width_poster=10, height_poster=12)
+
+# FMI vs AI model
+pm_fmi_vs_ai <- plot_model_coefficients(
+    classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$model,
+    classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$importance_summary,
+    get_pretty_name_v2,
+    title = "TCC Discrepancy FMI vs AI"
+)
+save_plot_both(pm_fmi_vs_ai, "TCC_discrepancy_model_fmi_vs_ai.pdf", width = 12, height = 16, width_poster=10, height_poster=21)
+
+# Path vs FMI model
+pm_path_vs_fmi <- plot_model_coefficients(
+    classic_no_forced_interactions$TCC_Patho_minus_TCC_FMI$model,
+    classic_no_forced_interactions$TCC_Patho_minus_TCC_FMI$importance_summary,
+    get_pretty_name_v2,
+    title = "TCC Discrepancy Pathologist vs FMI"
+)
+save_plot_both(pm_path_vs_fmi, "TCC_discrepancy_model_path_vs_fmi.pdf", width = COEFF_PLOT_WIDTH, height = COEFF_PLOT_HEIGHT, width_poster=10, height_poster=12)
+
+# Generate main effect and interaction plots ----------------------------------
+message("\n=== Generating effect plots for all models ===")
+
 # Loop through all models in classic_no_forced_interactions
 for (model_name in names(classic_no_forced_interactions)) {
-    cat("Processing model:", model_name, "\n")
+    message(paste("\nProcessing model:", model_name))
     
     model_obj <- classic_no_forced_interactions[[model_name]]$model
     model_data <- data_df_renamed
@@ -741,7 +842,8 @@ for (model_name in names(classic_no_forced_interactions)) {
     # Get predictor names (excluding intercept)
     predictor_names <- names(model_obj$coefficients)[-1]
     
-    # Remove .L, .Q, .C suffixes and factor level suffixes to get base variable names
+    # Helper: extract base variable name (remove suffixes)
+    # Rationale: Handle polynomial contrasts (.L/.Q/.C) and factor levels
     get_base_var <- function(pred_name) {
         # Split on ":" for interaction terms
         parts <- strsplit(pred_name, ":", fixed = TRUE)[[1]]
@@ -759,7 +861,7 @@ for (model_name in names(classic_no_forced_interactions)) {
         paste(parts_clean, collapse = ":")
     }
     
-    # Process each predictor
+    # Track processed variables to avoid duplicates
     processed_vars <- character(0)
     
     for (pred in predictor_names) {
@@ -769,7 +871,9 @@ for (model_name in names(classic_no_forced_interactions)) {
         
         # Check if interaction term
         if (grepl(":", pred, fixed = TRUE)) {
-            # Interaction term
+            # Interaction term --------------------------------------------------
+            message(paste("  Plotting interaction:", base_pred))
+            
             parts <- strsplit(base_pred, ":", fixed = TRUE)[[1]]
             if (length(parts) != 2) next
             
@@ -779,7 +883,7 @@ for (model_name in names(classic_no_forced_interactions)) {
             # Get appropriate grouping values for var_base_2
             raw_data <- data_df_pre_scaling
             names(raw_data) <- make.names(names(raw_data), unique = TRUE)
-            var_base_2_values <- get_grouping_values(var_base_2, raw_data, n_groups = 4)
+            var_base_2_values <- get_grouping_values(var_base_2, raw_data, n_groups = N_GROUPS)
             
             tryCatch({
                 p <- plot_main_effect(
@@ -802,16 +906,18 @@ for (model_name in names(classic_no_forced_interactions)) {
                     make.names(var_base_2), ".pdf"
                 )
                 
-                save_plot_both(p, safe_filename, width = 11, height = 8, width_poster=12)
-                cat("  Saved interaction plot:", safe_filename, "\n")
+                save_plot_both(p, safe_filename, width = INTERACTION_PLOT_WIDTH, height = INTERACTION_PLOT_HEIGHT, width_poster=12)
+                message(paste("    Saved:", safe_filename))
             }, error = function(e) {
-                cat("  Error plotting interaction", var_base, ":", var_base_2, "-", e$message, "\n")
+                message(paste("    Error plotting interaction", var_base, ":", var_base_2, "-", e$message))
             })
             
             processed_vars <- c(processed_vars, base_pred)
             
         } else {
-            # Main effect term
+            # Main effect term --------------------------------------------------
+            message(paste("  Plotting main effect:", base_pred))
+            
             var_base <- base_pred
             
             tryCatch({
@@ -831,13 +937,17 @@ for (model_name in names(classic_no_forced_interactions)) {
                     make.names(var_base), ".pdf"
                 )
                 
-                save_plot_both(p, safe_filename, width = 8, height = 8, width_poster=12)
-                cat("  Saved main effect plot:", safe_filename, "\n")
+                save_plot_both(p, safe_filename, width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, width_poster=12)
+                message(paste("    Saved:", safe_filename))
             }, error = function(e) {
-                cat("  Error plotting main effect", var_base, "-", e$message, "\n")
+                message(paste("    Error plotting main effect", var_base, "-", e$message))
             })
             
             processed_vars <- c(processed_vars, var_base)
         }
     }
 }
+
+message("\n=== Model plotting complete ===")
+message(paste("Plots saved to:", output_dir))
+message(paste("Poster plots saved to:", output_dir_poster))

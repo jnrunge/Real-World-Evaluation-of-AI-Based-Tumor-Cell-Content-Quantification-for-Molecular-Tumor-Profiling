@@ -1,18 +1,40 @@
+################################################################################
+# Script: 00-universal-dependencies.R
+# Purpose: Load universal dependencies, helper functions, and variable mappings
+#          for TCC discrepancy analysis
+# Author: Jan-Niklas Runge
+# 
+# Description:
+#   - Sets up project directory structure
+#   - Loads required R packages via renv
+#   - Defines excluded variables for modeling
+#   - Provides helper functions for variable name formatting
+# 
+# Inputs:
+#   - input/variable_pretty_names.csv: Mapping of technical to display names
+# 
+# Outputs:
+#   - Loaded libraries and helper functions in global environment
+#   - project_dir: Path to project root
+# 
+# Dependencies: See renv.lock for package versions
+################################################################################
+
+# Set working directory - adjust if running from different location
 if(file.exists("code/00-universal-dependencies.R")) {
     setwd(file.path(getwd(), "code"))
 } 
 
 project_dir <- getwd()
 
+# Load renv environment for reproducibility
 library(renv)
-
 renv::load(".")
 
-# this was decided after reviewing the univariate analyses
-# which still contain these variables
-# they were then removed because of their low relation with discrepancy
-# and / or their high correlation with other variables
-# to improve model selection stability
+# Variables excluded from modeling ---------------------------------------------
+# Exclusion rationale: Low association with discrepancy outcomes and/or
+# high correlation with other predictors (reduces model selection stability)
+# Decision made after reviewing univariate analyses
 variables_not_in_model <- c("Metastatic",
 "SpecimenSiteGrouped_01",
 "SpecimenSiteGrouped_02",
@@ -32,35 +54,35 @@ variables_not_in_model <- c("Metastatic",
 "Path_Margin Ink_Resection"
 )
 
-# these were removed from the path vs fmi analyses
-# because they a priori do not make sense in that context
+# Variables excluded from Path vs FMI analyses ---------------------------------
+# Exclusion rationale: Image quality metrics not applicable to FMI comparisons
 variables_not_in_path_vs_fmi <- c("Path_WSI Quality", "AI_scanning_artifacts_area_%")
 
-library(tidyverse)
-library(readxl)
-library(GGally)
-library(patchwork)
-library(sjPlot)
-library(broom)
-library(ggpubr)
-library(purrr)
-library(foreach)
-library(doParallel)
-library(vip)
-library(ggdendro)
-library(dbscan)
-library(viridis)
-library(factoextra)
-library(uwot)
-library(ggnewscale)
-library(ggforce)
-library(parallel)
+# Load required packages -------------------------------------------------------
+required_packages <- c(
+    "tidyverse", "readxl", "GGally", "patchwork", "sjPlot", "broom",
+    "ggpubr", "purrr", "foreach", "doParallel", "vip", "ggdendro",
+    "dbscan", "viridis", "factoextra", "uwot", "ggnewscale", 
+    "ggforce", "parallel"
+)
 
-
+for (pkg in required_packages) {
+    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+        stop("Required package '", pkg, "' is not installed. ",
+             "Please run renv::restore() to install all dependencies.")
+    }
+}
 
 print(paste0("Project directory is: ", project_dir))
 
-pretty_names <- read_csv(file.path(project_dir, "input/variable_pretty_names.csv"))
+# Load variable name mappings --------------------------------------------------
+pretty_names_path <- file.path(project_dir, "input/variable_pretty_names.csv")
+if (!file.exists(pretty_names_path)) {
+    stop("Required file not found: ", pretty_names_path, "\n",
+         "Please ensure input/variable_pretty_names.csv exists in project directory.")
+}
+pretty_names <- read_csv(pretty_names_path, show_col_types = FALSE)
+
 # Helper function to clean variable names
 clean_var_names <- function(x) {
     x <- stringr::str_replace_all(x, "Foundation.Model...TME.v1.0.1.alpha...Supporting.Result...", "")
@@ -71,6 +93,12 @@ clean_var_names <- function(x) {
     return(x)
 }
 
+#' Convert variable names to pretty display names
+#' 
+#' @param var Character string, variable name (supports interaction terms with ":")
+#' @return Character string, formatted display name
+#' @details Handles interaction terms by splitting on ":" and formatting each part.
+#'          Uses exact matching or prefix matching against pretty_names lookup table.
 get_pretty_name <- function(var) {
     # Handle interaction terms like "Var1:Var2"
     if (grepl(":", var, fixed = TRUE)) {
@@ -93,32 +121,12 @@ get_pretty_name <- function(var) {
         suffix <- sub("^[ _:\\.]+", "", suffix)
         return(paste0(pretty_prefix, if (nzchar(suffix)) suffix else ""))
     }
-    # fallback
-    #write_csv(tibble(variable = var, pretty_name = var), "discrepancies/variable_pretty_names.csv", append = TRUE)
+    # fallback: return original variable name
     var
 }
 
-short_var_label <- function(x) {
-    abbrev <- c(
-        "inflammation" = "infl.",
-        "content" = "cont.",
-        "Tertiary Lymphoid Structures" = "TLS",
-        "Tumor Infiltrating lymphocytes" = "TILs",
-        "Highly cellular stroma" = "cell. stroma"
-    )
-    x %>%
-        stringr::str_replace_all("_", " ") %>%
-        stringr::str_replace_all(" +", " ") %>%
-        {
-            tmp <- .
-            for (pat in names(abbrev)) {
-                tmp <- stringr::str_replace_all(
-                    tmp,
-                    stringr::regex(pat, ignore_case = TRUE), abbrev[pat]
-                )
-            }
-            tmp
-        } %>%
-        stringr::str_trim()
-}
+
+# Print session info for reproducibility ---------------------------------------
+message("\n=== Session Info ===")
+print(sessionInfo())
 

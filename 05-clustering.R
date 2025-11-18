@@ -1,15 +1,65 @@
-classic_no_forced_interactions <- readRDS(file.path(project_dir, "output/processed_data/best_models_classic_no_forced_interactions.rds"))
+################################################################################
+# Script: 05-clustering.R
+# Purpose: Perform UMAP-DBSCAN clustering to identify distinct discrepancy patterns
+# Author: Jan-Niklas Runge
+# 
+# Description:
+#   - Reduces model variable space via UMAP (Uniform Manifold Approximation)
+#   - Applies DBSCAN clustering to identify sample groups with similar characteristics
+#   - Performs grid search over UMAP/DBSCAN parameters to find optimal clustering
+#   - Generates comprehensive visualizations: cluster embeddings, boxplots, heatmaps
+#   - Analyzes term contributions and variable distributions within clusters
+# 
+# Outputs:
+#   - output/clustering/[outcome]_*/: Parameter-specific clustering results
+#   - output/clustering/best_*/: Best clustering result (highest F-ratio)
+#   - *_umap_embedding.png: UMAP scatter plots
+#   - *_dbscan_umap_clusters.png: Colored cluster assignments
+#   - *_boxplot_discrepancy_by_cluster.png: Discrepancy distributions per cluster
+#   - *_cluster_variable_heatmap.png: Variable summaries per cluster
+#   - *_per_term_contributions_*.png: Model term contribution analyses
+#   - *_parameter_grid_summary.csv: Performance metrics for all parameter combinations
+#   - *_clustering_ranking.csv: Ranked clustering results by separation metric
+# 
+################################################################################
 
+# Configuration ----------------------------------------------------------------
+# Plot font sizes
 base_size <- 14
 base_size_poster <- 22
 
-# ---- Helper Functions ----
+# UMAP parameters (default values; grid search explores ranges)
+DEFAULT_N_NEIGHBORS <- 15  # Number of nearest neighbors for manifold approximation
+DEFAULT_MIN_DIST <- 0.1    # Minimum distance between embedded points
+
+# DBSCAN parameters (default values; grid search explores ranges)
+DEFAULT_EPS <- 0.6         # Maximum distance between points in same cluster
+DEFAULT_MIN_PTS_FACTOR <- 0.05  # MinPts as fraction of dataset size
+
+# Grid search parameter ranges
+EPS_VALUES <- c(0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
+N_NEIGHBORS_VALUES <- c(5, 10, 15, 20)
+MIN_DIST_VALUES <- c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5)
+
+# Clustering evaluation
+# F-ratio metric: between-cluster variance / within-cluster variance of tcc discrepancy
+# Higher F-ratio indicates better-separated clusters
+
+# Load models ------------------------------------------------------------------
+classic_no_forced_interactions <- readRDS(file.path(project_dir, "output/processed_data/best_models_classic_no_forced_interactions.rds"))
+
+# Helper functions -------------------------------------------------------------
 
 #' Prepare model variables matrix
+#' 
 #' @param response_var Response variable name
 #' @param data_df_renamed Data frame with renamed variables
 #' @param model_list List of models
-#' @return Data frame with model variables
+#' @return List with X (model matrix) and dummified_vars (factor variable names)
+#' @details
+#'   - Extracts variables used in model
+#'   - Converts ordered factors to numeric
+#'   - Creates full dummy encoding for unordered factors
 prepare_model_variables <- function(response_var, data_df_renamed, model_list) {
     model_vars <- model_list[[response_var]]$model %>%
         formula() %>%
@@ -50,11 +100,13 @@ prepare_model_variables <- function(response_var, data_df_renamed, model_list) {
 }
 
 #' Perform UMAP transformation
+#' 
 #' @param X Model variables matrix
 #' @param n_neighbors Number of neighbors for UMAP
 #' @param min_dist Minimum distance for UMAP
 #' @param seed Random seed
-#' @return UMAP result as data frame
+#' @return UMAP result as data frame with UMAP1 and UMAP2 columns
+#' @details Applies scaling before UMAP to ensure equal variable influence
 perform_umap <- function(X, n_neighbors = 15, min_dist = 0.1, seed = 123) {
     set.seed(seed)
     umap_result <- umap(scale(X), n_neighbors = n_neighbors, min_dist = min_dist, metric = "euclidean")
@@ -64,6 +116,7 @@ perform_umap <- function(X, n_neighbors = 15, min_dist = 0.1, seed = 123) {
 }
 
 #' Plot UMAP embedding
+#' 
 #' @param umap_df UMAP coordinates
 #' @param output_dir Output directory
 #' @param response_var Response variable name
@@ -82,11 +135,15 @@ plot_umap_embedding <- function(umap_df, output_dir, response_var, base_size = 1
 }
 
 #' Determine DBSCAN parameters and perform clustering
+#' 
 #' @param umap_df UMAP coordinates
-#' @param eps Epsilon parameter
-#' @param minPts Minimum points parameter
+#' @param eps Epsilon parameter (neighborhood radius)
+#' @param minPts Minimum points parameter (NULL for auto: 2 * n_dimensions)
 #' @param output_dir Output directory
-#' @return DBSCAN result object
+#' @return DBSCAN result object with cluster assignments
+#' @details 
+#'   - Plots k-NN distance graph to help select eps
+#'   - Cluster 0 represents noise points (not assigned to any cluster)
 perform_dbscan_clustering <- function(umap_df, eps = 0.6, minPts = NULL, output_dir) {
     # Plot k-NN distance for parameter selection
     kNNdist <- kNNdistplot(umap_df, k = 1:10)
@@ -102,12 +159,15 @@ perform_dbscan_clustering <- function(umap_df, eps = 0.6, minPts = NULL, output_
 }
 
 #' Visualize DBSCAN clusters on UMAP
+#' 
 #' @param umap_df UMAP coordinates
 #' @param db_clusters DBSCAN cluster assignments
 #' @param output_dir Output directory
 #' @param response_var Response variable name
 #' @param base_size Base font size for plots
 #' @param base_size_poster Base font size for poster plots
+#' @return umap_df with cluster column added
+#' @details Noise cluster (0) is always black; others use viridis palette
 plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var, 
                                  base_size = 14, base_size_poster = 22) {
     umap_df$cluster <- factor(db_clusters)
@@ -153,12 +213,13 @@ plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var,
 }
 
 #' Compute cluster statistics and predictions
+#' 
 #' @param db_clusters DBSCAN cluster assignments
 #' @param response_var Response variable name
 #' @param data_df Original data frame
 #' @param data_df_renamed Data frame with renamed variables
 #' @param model_list List of models
-#' @return List with df_all and cluster_counts
+#' @return List with df_all (data + predictions + clusters) and cluster_counts
 compute_cluster_statistics <- function(db_clusters, response_var, data_df, 
                                       data_df_renamed, model_list) {
     cluster_counts <- tibble(cluster = db_clusters) %>%
@@ -181,12 +242,18 @@ compute_cluster_statistics <- function(db_clusters, response_var, data_df,
 }
 
 #' Create boxplot of discrepancy by cluster
+#' 
 #' @param df_all Data frame with clusters and predictions
 #' @param cluster_counts Cluster size counts
 #' @param response_var Response variable name
 #' @param output_dir Output directory
 #' @param base_size Base font size for plots
 #' @param base_size_poster Base font size for poster plots
+#' @return df_all with cluster_label column added
+#' @details
+#'   - Excludes noise cluster (0) from visualization
+#'   - White diamonds show mean predicted value per cluster
+#'   - Cluster labels include size as percentage of total data
 plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_dir, 
                                  base_size = 14, base_size_poster = 22) {
     samples_cluster_labels <- cluster_counts %>%
@@ -266,9 +333,11 @@ plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_d
 }
 
 #' Export extreme discrepancy counts by cluster
+#' 
 #' @param df_all Data frame with clusters
 #' @param response_var Response variable name
 #' @param output_dir Output directory
+#' @details Counts samples with |discrepancy| > 20 per cluster
 export_extreme_discrepancies <- function(df_all, response_var, output_dir) {
     df_all %>%
         group_by(cluster) %>%
@@ -283,11 +352,15 @@ export_extreme_discrepancies <- function(df_all, response_var, output_dir) {
 }
 
 #' Analyze term contributions per cluster
+#' 
 #' @param df_all Data frame with clusters
 #' @param response_var Response variable name
 #' @param model_list List of models
 #' @param output_dir Output directory
 #' @param base_size Base font size for plots
+#' @details
+#'   - Plots contribution of each model term to predicted value
+#'   - Shows representative sample per cluster and all cluster members
 analyze_term_contributions <- function(df_all, response_var, model_list, output_dir, 
                                       base_size = 14) {
     # Exclude noise cluster (0) from contribution plots
@@ -380,6 +453,7 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
 }
 
 #' Plot variable distributions by cluster
+#' 
 #' @param data_df_renamed Data frame with renamed variables
 #' @param db_clusters DBSCAN cluster assignments
 #' @param response_var Response variable name
@@ -387,6 +461,10 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
 #' @param X Model variables matrix
 #' @param output_dir Output directory
 #' @param base_size Base font size for plots
+#' @details
+#'   - Density plots for numeric variables
+#'   - Bar plots for categorical variables
+#'   - Excludes noise cluster (0)
 plot_variable_distributions <- function(data_df_renamed, db_clusters, response_var, 
                                        model_list, X, output_dir, base_size = 14) {
     data_df_renamed_only_model_vars <- model_list[[response_var]]$model %>%
@@ -469,6 +547,7 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
 }
 
 #' Create cluster summary heatmap
+#' 
 #' @param data_df_renamed Data frame with renamed variables
 #' @param db_clusters DBSCAN cluster assignments
 #' @param df_all Data frame with predictions
@@ -476,9 +555,15 @@ plot_variable_distributions <- function(data_df_renamed, db_clusters, response_v
 #' @param model_list List of models
 #' @param X Model variables matrix
 #' @param output_dir Output directory
-#' @param reverse_colors Logical, if TRUE reverses color direction (blue=high, red=low)
+#' @param dummified_vars Character vector of factor variable names
+#' @param reverse_colors Logical, if TRUE blue=high, red=low
 #' @param base_size Base font size for plots
 #' @param base_size_poster Base font size for poster plots
+#' @details
+#'   - Numeric variables: z-scores relative to overall mean (++, +, =, -, --)
+#'   - Categorical variables: most frequent level per cluster
+#'   - Response variable: mean value per cluster with gradient coloring
+#'   - Alpha channel encodes within-cluster variation
 create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all, 
                                   response_var, model_list, X, output_dir,
                                   dummified_vars = NULL,
@@ -910,9 +995,14 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
 }
 
 #' Calculate cluster separation metric for TCC discrepancy
+#' 
 #' @param df_all Data frame with cluster assignments and TCC discrepancy
 #' @param response_var Response variable name
-#' @return List with separation metrics
+#' @return List with separation metrics (f_ratio, between_var, within_var, etc.)
+#' @details
+#'   - F-ratio = between-cluster variance / within-cluster variance
+#'   - Higher F-ratio indicates better separation
+#'   - Used to select best clustering from grid search
 calculate_cluster_separation <- function(df_all, response_var) {
     if (is.null(df_all) || !"cluster" %in% names(df_all)) {
         return(list(f_ratio = NA, between_var = NA, within_var = NA, n_clusters = NA))
@@ -958,9 +1048,13 @@ calculate_cluster_separation <- function(df_all, response_var) {
 }
 
 #' Find best clustering result from grid search
+#' 
 #' @param grid_results Results from run_clustering_grid_search
 #' @param response_var Response variable name
-#' @return Data frame with ranked results and best result details
+#' @return List with ranking, best_result, best_index, best_params
+#' @details
+#'   - Ranks all parameter combinations by F-ratio
+#'   - Renames output directory of best result to include "best_" prefix
 find_best_clustering <- function(grid_results, response_var) {
     message("Evaluating ", length(grid_results$results), " clustering results...")
     
@@ -1046,22 +1140,24 @@ find_best_clustering <- function(grid_results, response_var) {
     ))
 }
 
-# ---- Main Workflow Function ----
+# Main workflow function -------------------------------------------------------
 
 #' Main clustering analysis workflow
+#' 
 #' @param response_var Response variable name
 #' @param data_df Original data frame
 #' @param data_df_renamed Data frame with renamed variables
-#' @param model_list List containing models (e.g., classic_no_forced_interactions)
+#' @param model_list List containing models
 #' @param output_base_dir Base output directory
 #' @param eps DBSCAN epsilon parameter
-#' @param minPts DBSCAN minimum points parameter (default: 2 * number of UMAP dimensions)
+#' @param minPts DBSCAN minimum points (default: 2 * UMAP dimensions)
 #' @param n_neighbors UMAP n_neighbors parameter
 #' @param min_dist UMAP min_dist parameter
 #' @param seed Random seed
-#' @param reverse_colors Logical, if TRUE reverses color direction in heatmap (blue=high, red=low)
+#' @param reverse_colors Logical, reverse heatmap colors
 #' @param base_size Base font size for plots
 #' @param base_size_poster Base font size for poster plots
+#' @return List with clustering results
 run_clustering_analysis <- function(response_var, 
                                    data_df, 
                                    data_df_renamed, 
@@ -1156,6 +1252,7 @@ run_clustering_analysis <- function(response_var,
 }
 
 #' Run clustering analysis over parameter grid
+#' 
 #' @param response_var Response variable name
 #' @param data_df Original data frame
 #' @param data_df_renamed Data frame with renamed variables
@@ -1167,9 +1264,13 @@ run_clustering_analysis <- function(response_var,
 #' @param min_dist_values Vector of min_dist values to try
 #' @param seed Random seed
 #' @param n_cores Number of cores to use (default: detectCores() - 1)
-#' @param reverse_colors Logical, if TRUE reverses color direction in heatmap (blue=high, red=low)
+#' @param reverse_colors Logical, reverse heatmap colors
 #' @param base_size Base font size for plots
 #' @param base_size_poster Base font size for poster plots
+#' @return List with results, parameters, and summary
+#' @details
+#'   - Runs clustering for all parameter combinations in parallel
+#'   - Saves summary table with cluster counts and error status
 run_clustering_grid_search <- function(response_var,
                                       data_df,
                                       data_df_renamed,
@@ -1291,8 +1392,8 @@ run_clustering_grid_search <- function(response_var,
     ))
 }
 
-# ---- Execute Analysis ----
-
+# Execute analysis -------------------------------------------------------------
+message("\n=== Starting clustering analysis ===")
 
 message("Found ", length(response_vars), " response variables to analyze:")
 message(paste(response_vars, collapse = ", "))
@@ -1303,30 +1404,30 @@ for (response_var in response_vars) {
     message("STARTING ANALYSIS FOR: ", response_var)
     message("========================================\n")
     
-    # Run grid search
+    # Run grid search with parameter ranges defined in configuration
     grid_results <- run_clustering_grid_search(
         response_var = response_var,
         data_df = data_df,
         data_df_renamed = data_df_renamed,
         model_list = classic_no_forced_interactions,
         output_base_dir = file.path(project_dir, "output/clustering"),
-        eps_values = c(0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8),
-        minPts_values = nrow(data_df_renamed) * 0.05,
-        n_neighbors_values = c(5, 10, 15, 20),
-        min_dist_values = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5),
+        eps_values = EPS_VALUES,
+        minPts_values = nrow(data_df_renamed) * DEFAULT_MIN_PTS_FACTOR,
+        n_neighbors_values = N_NEIGHBORS_VALUES,
+        min_dist_values = MIN_DIST_VALUES,
         seed = 123,
-        reverse_colors = TRUE  # Set to TRUE to reverse colors (blue=high, red=low)
+        reverse_colors = TRUE  # Blue=high, red=low for heatmaps
     )
     
-    # Save grid results
+    # Save grid results for future reference
     saveRDS(grid_results, 
             file = file.path(project_dir, "output/clustering", 
                              paste0(response_var, "_clustering_grid_results.rds")))
     
-    # Find best clustering result
+    # Find and rename best clustering result
     best_clustering <- find_best_clustering(grid_results, response_var)
     
-    # Save ranking
+    # Save ranking of all parameter combinations
     write_csv(
         best_clustering$ranking,
         file.path(project_dir, "output/clustering",
@@ -1341,4 +1442,5 @@ for (response_var in response_vars) {
 
 message("\n\n========================================")
 message("ALL RESPONSE VARIABLES PROCESSED")
+message("Results saved to:", file.path(project_dir, "output/clustering"))
 message("========================================")
