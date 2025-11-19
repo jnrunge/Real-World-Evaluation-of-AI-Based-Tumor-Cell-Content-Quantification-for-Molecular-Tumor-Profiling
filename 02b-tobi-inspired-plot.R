@@ -212,6 +212,7 @@ ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations.PDF"), p_matri
 # Histogram (sample-type discrepancy) ----------------------------------------
 sampletype_discrepancy_hist <- ggplot(data_df_complete, aes(x = TCC_Patho_minus_TCC_AI, fill = `Sample type`)) +
   geom_histogram(position = "dodge", bins = HIST_BINS, color = "#013d6b", alpha = 0.85) +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 0.5, alpha = 0.5) +
   facet_wrap(~`Sample type`, ncol = 1) +
   scale_fill_brewer(palette = "Dark2") +
   theme_bw(base_size) +
