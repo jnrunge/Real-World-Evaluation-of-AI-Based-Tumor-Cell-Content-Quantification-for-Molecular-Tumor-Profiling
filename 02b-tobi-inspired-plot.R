@@ -97,7 +97,9 @@ add_identity_line_colored_corner <- function(data, mapping, ...) {
     # ) +
     scale_x_continuous(limits = PANEL_LIMITS) +
     scale_y_continuous(limits = PANEL_LIMITS) +
-    scale_color_brewer(palette = "Dark2")
+    scale_color_manual(values=c("Biopsy" = "#1B9E77",
+                        "Cytology" = "#D95F02",
+                        "Resection" = "#7570B3"))
 }
 
 #' Apply common scale/theme tweaks to a ggpairs matrix
@@ -173,10 +175,23 @@ p_matrix_tissue_list <- map(
   }
 )
 
+# By-sample-type matrices
+sample_type_levels <- unique(df$`Sample type`)
+sample_type_levels <- sample_type_levels[!is.na(sample_type_levels)]
+
+p_matrix_sampletype_list <- map(
+  sample_type_levels,
+  function(stype) {
+    df_sub <- df %>% dplyr::filter(`Sample type` == stype)
+    pm <- make_pairplot(df_sub, base_size, title = stype)
+    apply_common_pairplot_tweaks(pm)
+  }
+)
+
 # Combine matrices in grid ----------------------------------------------------
-all_pmatrices <- c(list(p_matrix), p_matrix_tissue_list)
+all_pmatrices <- c(list(p_matrix), p_matrix_tissue_list, p_matrix_sampletype_list)
 n_plots <- length(all_pmatrices)
-ncol_grid <- ceiling(n_plots / 2)
+ncol_grid <- 3
 
 combined_p_matrix <- wrap_elements(ggmatrix_gtable(all_pmatrices[[1]]))
 if (n_plots > 1) {
@@ -187,7 +202,6 @@ if (n_plots > 1) {
         }
     }
 }
-# If only one row, ensure it's a patchwork object
 if (n_plots == 1) {
     combined_p_matrix <- combined_p_matrix
 } else {
@@ -244,7 +258,7 @@ combined_with_hist <- (combined_p_matrix | sampletype_discrepancy_hist_noleg) +
     plot_layout(widths = c(0.85, 0.15))
 
 # Show or save the combined plot
-ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations_with_sampletype_hist.PDF"), combined_with_hist, width = 15, height = 9, dpi = 300)
+ggsave(file.path(project_dir, "output/tobi_plots/TCC_correlations_with_sampletype_hist.PDF"), combined_with_hist, width = 15, height = 12, dpi = 300)
 
 # Poster variants -------------------------------------------------------------
 # Poster overall plot matrix
@@ -261,12 +275,25 @@ p_matrix_tissue_list_poster <- purrr::map(
   }
 )
 
+# Poster faceted-by-sample-type
+sample_type_levels <- unique(df$`Sample type`)
+sample_type_levels <- sample_type_levels[!is.na(sample_type_levels)]
+
+p_matrix_sampletype_list_poster <- purrr::map(
+  sample_type_levels,
+  function(stype) {
+    df_sub <- df %>% dplyr::filter(`Sample type` == stype)
+    pm <- make_pairplot(df_sub, base_size_poster, title = stype)
+    apply_common_pairplot_tweaks(pm)
+  }
+)
+
 dir.create(file.path(project_dir, "output/tobi_plots/poster"), showWarnings = FALSE, recursive = TRUE)
 
 # Poster combined matrices
-all_pmatrices_poster <- c(list(p_matrix_poster), p_matrix_tissue_list_poster)
+all_pmatrices_poster <- c(list(p_matrix_poster), p_matrix_tissue_list_poster, p_matrix_sampletype_list_poster)
 n_plots_poster <- length(all_pmatrices_poster)
-ncol_grid_poster <- ceiling(n_plots_poster / 2)
+ncol_grid_poster <- 3
 
 combined_p_matrix_poster <- patchwork::wrap_elements(GGally::ggmatrix_gtable(all_pmatrices_poster[[1]]))
 if (n_plots_poster > 1) {
@@ -315,5 +342,5 @@ combined_with_hist_poster <- (combined_p_matrix_poster | sampletype_discrepancy_
     patchwork::plot_layout(widths = c(0.85, 0.15))
 
 ggsave(file.path(project_dir, "output/tobi_plots/poster/TCC_correlations_with_sampletype_hist.PDF"),
-       combined_with_hist_poster, width = 16, height = 10, dpi = 300)
+       combined_with_hist_poster, width = 18, height = 15, dpi = 300)
 
