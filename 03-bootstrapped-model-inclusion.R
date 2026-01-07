@@ -17,7 +17,7 @@
 # Configuration ----------------------------------------------------------------
 # Number of stepwise iterations per bootstrap sample
 # Rationale: Ensures convergence of forward selection algorithm
-STEPS_TO_RUN <- 2000
+STEPS_TO_RUN <- 5000
 
 # Number of bootstrap samples
 # Rationale: 1000 iterations provides stable frequency estimates
