@@ -122,7 +122,7 @@ plot_variable_frequency <- function(boot_forward_list, response_var, data_df, n_
         theme_bw(12) +
         coord_flip()
     
-    ggsave(p1, filename = paste0(output_dir, "/bootstrapped_models_variable_inclusion_", response_var, ".png"), width = 10, height = 6)
+    ggsave(p1, filename = paste0(output_dir, "/bootstrapped_models_variable_inclusion_", response_var, ".pdf"), width = 10, height = 6)
     
     return(results)
 }
@@ -212,7 +212,7 @@ plot_model_combinations <- function(boot_forward_list, response_var, data_df, n_
     
     print(p)
     
-    ggsave(p, filename = paste0(output_dir, "/bootstrapped_models_combinations_", response_var, ".png"), width = 10, height = 6)
+    ggsave(p, filename = paste0(output_dir, "/bootstrapped_models_combinations_", response_var, ".pdf"), width = 10, height = 6)
     
     return(list(
         combination_counts = combination_counts,

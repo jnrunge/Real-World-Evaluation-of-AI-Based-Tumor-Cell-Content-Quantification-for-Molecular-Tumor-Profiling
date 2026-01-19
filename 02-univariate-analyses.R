@@ -244,3 +244,132 @@ for (response_var in response_vars) {
 }
 
 message("\n=== Univariate analyses complete ===")
+
+
+
+#### Table 2 generation
+message("\n=== Generating Table 2 (Descriptive Statistics by Cancer) ===")
+
+# Function to format numeric stats: Mean +/- SD [Min, Max]
+format_numeric_stats <- function(x) {
+    x <- x[!is.na(x)]
+    if (length(x) == 0) return("NA")
+    m <- mean(x)
+    s <- sd(x)
+    mn <- min(x)
+    mx <- max(x)
+    sprintf("%.2f \u00b1 %.2f [%.2f, %.2f]", m, s, mn, mx)
+}
+
+# Identify cancer types for columns
+cancer_types <- sort(unique(as.character(data_df_pre_scaling_NAd_sampletypes$Cancer)))
+
+# Build rows for the table
+table2_list <- list()
+
+for (var in all_vars) {
+    var_pretty <- get_pretty_name(var)
+    vals <- data_df_pre_scaling_NAd_sampletypes[[var]]
+    cancers <- data_df_pre_scaling_NAd_sampletypes$Cancer
+    
+    if (var == "Path_evaluable_cancer_area_marked_as_artifact_by_AI") {
+        # Special handling: numeric but displayed as counts <5 vs >=5
+        
+        # 1. Header row
+        header_vals <- setNames(rep("", length(cancer_types)), cancer_types)
+        header_df <- bind_cols(
+            Variable = var_pretty,
+            as_tibble(as.list(header_vals))
+        )
+        table2_list[[length(table2_list) + 1]] <- header_df
+        
+        # 2. Row for >= 5
+        counts_ge5 <- map_chr(cancer_types, function(ct) {
+            subset_vals <- vals[cancers == ct]
+            count <- sum(subset_vals >= 5, na.rm = TRUE)
+            as.character(count)
+        })
+        
+        row_ge5 <- bind_cols(
+            Variable = "  >= 5",
+            as_tibble(as.list(setNames(counts_ge5, cancer_types)))
+        )
+        table2_list[[length(table2_list) + 1]] <- row_ge5
+
+        # 3. Row for < 5
+        counts_lt5 <- map_chr(cancer_types, function(ct) {
+            subset_vals <- vals[cancers == ct]
+            count <- sum(subset_vals < 5, na.rm = TRUE)
+            as.character(count)
+        })
+        
+        row_lt5 <- bind_cols(
+            Variable = "  < 5",
+            as_tibble(as.list(setNames(counts_lt5, cancer_types)))
+        )
+        table2_list[[length(table2_list) + 1]] <- row_lt5
+
+    } else if (is.numeric(vals)) {
+        # Numeric: Single row with formatted stats
+        stats_by_cancer <- map_chr(cancer_types, function(ct) {
+            subset_vals <- vals[cancers == ct]
+            format_numeric_stats(subset_vals)
+        })
+        
+        # Create row as a tibble
+        row_df <- bind_cols(
+            Variable = var_pretty,
+            as_tibble(as.list(setNames(stats_by_cancer, cancer_types)))
+        )
+        table2_list[[length(table2_list) + 1]] <- row_df
+        
+    } else {
+        # Categorical: Header row followed by level rows
+        vals_fac <- as.factor(vals)
+        # Use droplevels to only show levels that exist in dataset
+        lvls <- levels(droplevels(vals_fac))
+        
+        # 1. Header row
+        header_vals <- setNames(rep("", length(cancer_types)), cancer_types)
+        header_df <- bind_cols(
+            Variable = var_pretty,
+            as_tibble(as.list(header_vals))
+        )
+        table2_list[[length(table2_list) + 1]] <- header_df
+        
+        # 2. Rows for each level
+        for (lvl in lvls) {
+            counts_by_cancer <- map_chr(cancer_types, function(ct) {
+                subset_vals <- vals_fac[cancers == ct]
+                count <- sum(subset_vals == lvl, na.rm = TRUE)
+                as.character(count)
+            })
+            
+            lvl_df <- bind_cols(
+                Variable = paste0("  ", lvl),
+                as_tibble(as.list(setNames(counts_by_cancer, cancer_types)))
+            )
+            table2_list[[length(table2_list) + 1]] <- lvl_df
+        }
+    }
+}
+
+# Combine all rows
+table2_df <- bind_rows(table2_list)
+
+# Export
+output_t2_dir <- file.path(project_dir, "output/tables")
+if (!dir.exists(output_t2_dir)) dir.create(output_t2_dir, recursive = TRUE)
+
+xlsx_path <- file.path(output_t2_dir, "Table2_Descriptive_Statistics.xlsx")
+csv_path <- file.path(output_t2_dir, "Table2_Descriptive_Statistics.csv")
+
+# Use writexl if installed, else write CSV
+if (requireNamespace("writexl", quietly = TRUE)) {
+    writexl::write_xlsx(table2_df, xlsx_path)
+    message(paste("Table 2 saved to:", xlsx_path))
+} else {
+    write_csv(table2_df, csv_path)
+    message(paste("writexl not installed. Table 2 saved to:", csv_path))
+}
+

@@ -23,10 +23,10 @@ base_size <- 14
 base_size_poster <- 22
 
 # Plot dimensions (base values; adjusted per plot type)
-DEFAULT_WIDTH <- 8
-DEFAULT_HEIGHT <- 8
-COEFF_PLOT_WIDTH <- 8
-COEFF_PLOT_HEIGHT <- 10
+DEFAULT_WIDTH <- 3
+DEFAULT_HEIGHT <- 3
+COEFF_PLOT_WIDTH <- 10
+COEFF_PLOT_HEIGHT <- 13
 INTERACTION_PLOT_WIDTH <- 11
 INTERACTION_PLOT_HEIGHT <- 8
 PLOT_DPI <- 300
@@ -227,7 +227,16 @@ plot_main_effect <- function(
                 position = if (is.null(var_base_2)) "identity" else ggplot2::position_dodge2(width = 0.8, preserve = "single")
             ) +
             ggplot2::labs(
-                x = get_pretty_name_v2(var_base),
+                x = {
+                    lbl <- get_pretty_name_v2(var_base)
+                    spaces <- gregexpr(" ", lbl, fixed = TRUE)[[1]]
+                    if (spaces[1] != -1) {
+                    mid <- nchar(lbl) / 2
+                    space_idx <- spaces[which.min(abs(spaces - mid))]
+                    substr(lbl, space_idx, space_idx) <- "\n"
+                    }
+                    lbl
+                },
                 y = ylab,
                 title = paste(
                     title_prefix,
@@ -326,7 +335,16 @@ plot_main_effect <- function(
             geom_line(color = "black", size = 1.2) +
             geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "black", alpha = 0.2) +
             labs(
-                x = get_pretty_name_v2(var_base),
+                x = {
+                    lbl <- get_pretty_name_v2(var_base)
+                    spaces <- gregexpr(" ", lbl, fixed = TRUE)[[1]]
+                    if (spaces[1] != -1) {
+                    mid <- nchar(lbl) / 2
+                    space_idx <- spaces[which.min(abs(spaces - mid))]
+                    substr(lbl, space_idx, space_idx) <- "\n"
+                    }
+                    lbl
+                },
                 y = ylab,
                 title = paste(title_prefix, get_pretty_name_v2(var_base))
             ) +
@@ -896,8 +914,8 @@ for (model_name in names(classic_no_forced_interactions)) {
                     unscale_center = TRUE
                 ) + 
                     theme(legend.position = "bottom") + 
-                    ggtitle(get_pretty_name(model_name)) +
-                    ylab("Predicted Discrepancy")
+                    ggtitle(NULL) +
+                    ylab(NULL)
                 
                 # Create safe filename
                 safe_filename <- paste0(
@@ -928,8 +946,8 @@ for (model_name in names(classic_no_forced_interactions)) {
                     get_pretty_name_v2 = get_pretty_name_v2,
                     unscale_center = TRUE
                 ) + 
-                    ggtitle(get_pretty_name(model_name)) +
-                    ylab("Predicted Discrepancy")
+                    ggtitle(NULL) +
+                    ylab(NULL)
                 
                 # Create safe filename
                 safe_filename <- paste0(

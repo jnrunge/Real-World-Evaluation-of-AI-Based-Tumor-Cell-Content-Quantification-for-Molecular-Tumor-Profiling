@@ -13,11 +13,11 @@
 # Outputs:
 #   - output/clustering/[outcome]_*/: Parameter-specific clustering results
 #   - output/clustering/best_*/: Best clustering result (highest F-ratio)
-#   - *_umap_embedding.png: UMAP scatter plots
-#   - *_dbscan_umap_clusters.png: Colored cluster assignments
-#   - *_boxplot_discrepancy_by_cluster.png: Discrepancy distributions per cluster
-#   - *_cluster_variable_heatmap.png: Variable summaries per cluster
-#   - *_per_term_contributions_*.png: Model term contribution analyses
+#   - *_umap_embedding.pdf: UMAP scatter plots
+#   - *_dbscan_umap_clusters.pdf: Colored cluster assignments
+#   - *_boxplot_discrepancy_by_cluster.pdf: Discrepancy distributions per cluster
+#   - *_cluster_variable_heatmap.pdf: Variable summaries per cluster
+#   - *_per_term_contributions_*.pdf: Model term contribution analyses
 #   - *_parameter_grid_summary.csv: Performance metrics for all parameter combinations
 #   - *_clustering_ranking.csv: Ranked clustering results by separation metric
 # 
@@ -129,7 +129,7 @@ plot_umap_embedding <- function(umap_df, output_dir, response_var, base_size = 1
         labs(title = "UMAP of Model Variables (scaled)") +
         theme_minimal(base_size = base_size)
     
-    ggsave(file.path(output_dir, paste0(response_var, "_umap_embedding.png")), 
+    ggsave(file.path(output_dir, paste0(response_var, "_umap_embedding.pdf")), 
            plot = p, width = 8, height = 6, dpi = 300)
     print(p)
 }
@@ -187,12 +187,12 @@ plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var,
     p <- ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = cluster)) +
         geom_point(alpha = 0.7, size = 2) +
         scale_color_manual(values = color_values, breaks = legend_breaks, drop = FALSE) +
-        labs(title = "UMAP of Model Variables (scaled)",
-             color = "Cluster") +
-        theme_bw(base_size = base_size)
+        labs(title = NULL, color = "Cluster") +
+        theme_bw(base_size = base_size) +
+        theme(legend.position = "none")
     
     print(p)
-    ggsave(file.path(output_dir, paste0(response_var, "_dbscan_umap_clusters.png")), 
+    ggsave(file.path(output_dir, paste0(response_var, "_dbscan_umap_clusters.pdf")), 
            width = 8, height = 6, dpi = 300)
     
     # Create poster version
@@ -206,7 +206,7 @@ plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var,
              color = "Cluster") +
         theme_bw(base_size = base_size_poster)
     
-    ggsave(file.path(poster_dir, paste0(response_var, "_dbscan_umap_clusters.png")), 
+    ggsave(file.path(poster_dir, paste0(response_var, "_dbscan_umap_clusters.pdf")), 
            plot = p_poster, width = 8, height = 6, dpi = 300)
     
     return(umap_df)
@@ -302,7 +302,7 @@ plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_d
         theme(legend.position = "none") +
         scale_fill_manual(values = color_values, breaks = legend_breaks, drop = FALSE)
     
-    ggsave(file.path(output_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.png")), 
+    ggsave(file.path(output_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.pdf")), 
            plot = p_summary, width = 8, height = 6, dpi = 300)
     
     # Create poster version
@@ -326,7 +326,7 @@ plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_d
         theme(legend.position = "none") +
         scale_fill_manual(values = color_values, breaks = legend_breaks, drop = FALSE)
     
-    ggsave(file.path(poster_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.png")), 
+    ggsave(file.path(poster_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.pdf")), 
            plot = p_summary_poster, width = 8, height = 6, dpi = 300)
     
     return(df_all)
@@ -407,7 +407,7 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
         labs(title = "Per-Term Contributions to the Linear Predictor") +
         theme_bw(base_size = base_size)
     
-    ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_per_sample.png")), 
+    ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_per_sample.pdf")), 
            plot = p_contrib, width = 14, height = 6, dpi = 300)
     
     # Contributions for all cluster members
@@ -448,7 +448,7 @@ analyze_term_contributions <- function(df_all, response_var, model_list, output_
              y = "Contribution", x = "Term") +
         theme_bw(base_size = base_size)
     
-    ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_all_cluster_members.png")), 
+    ggsave(file.path(output_dir, paste0(response_var, "_per_term_contributions_all_cluster_members.pdf")), 
            plot = p_contrib_all, width = 14, height = 8, dpi = 300)
 }
 
@@ -870,8 +870,8 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         coord_flip() +
         ylab(NULL)
     
-    ggsave(file.path(output_dir, paste0(response_var, "_cluster_variable_heatmap.png")), 
-           width = 18, height = 6)
+    ggsave(file.path(output_dir, paste0(response_var, "_cluster_variable_heatmap.pdf")), 
+           width = 16, height = 7)
     
     # Create poster version
     poster_dir <- file.path(output_dir, "poster")
@@ -990,7 +990,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         coord_flip() +
         ylab(NULL)
     
-    ggsave(file.path(poster_dir, paste0(response_var, "_cluster_variable_heatmap.png")), 
+    ggsave(file.path(poster_dir, paste0(response_var, "_cluster_variable_heatmap.pdf")), 
            plot = p_poster, width = 20, height = 10)
 }
 
