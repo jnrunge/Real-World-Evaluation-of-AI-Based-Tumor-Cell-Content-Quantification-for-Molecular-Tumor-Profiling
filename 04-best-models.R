@@ -220,11 +220,11 @@ if (file.exists(rds_file)) {
             scale_color_manual(values = c("FALSE" = "white", "TRUE" = "red"), guide = "none") +
             scale_linewidth_manual(values = c("FALSE" = 0.5, "TRUE" = 2), guide = "none") +
             labs(
-                title = paste("Predictor Presence Across Model Fits:", response_var),
-                subtitle = paste(
-                    "Red border indicates chosen fit:", chosen_fit,
-                    "| Identical fits have same color |",
-                    length(unique(fit_groups)), "unique model(s)"
+                title = paste0("Predictor Presence Across Model Fits:\n", response_var),
+                subtitle = paste0(
+                    "Red border indicates chosen fit: ", chosen_fit,
+                    "\nIdentical fits have same color\n",
+                    length(unique(fit_groups)), " unique model(s)"
                 ),
                 x = "Model Fit (ordered by similarity)", y = "Predictor", fill = ""
             ) +

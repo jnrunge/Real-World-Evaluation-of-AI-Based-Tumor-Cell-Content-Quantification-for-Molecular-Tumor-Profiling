@@ -71,6 +71,17 @@ SIGNIF_TEXTSIZE <- 5
 source(file.path(project_dir, "00-universal-dependencies.R"))
 
 # Helper functions -------------------------------------------------------------
+variable_glossary <- pretty_names
+#' Get short display name for variable
+#' @param var_name Character string, variable name
+#' @return Character string (short name) or NA if not available
+get_short_name <- function(var_name) {
+    if (exists("variable_glossary") && "pretty_name_short" %in% names(variable_glossary)) {
+        val <- variable_glossary$pretty_name_short[match(var_name, variable_glossary$variable)]
+        if (length(val) > 0) return(val)
+    }
+    return(NA_character_)
+}
 
 #' Create plot for a single predictor vs outcome
 #' 
@@ -78,11 +89,12 @@ source(file.path(project_dir, "00-universal-dependencies.R"))
 #' @param var Character string, name of predictor variable
 #' @param univ_results Tibble with univariate test results
 #' @param get_pretty_name Function to convert variable names to display names
+#' @param get_short_name Function to convert variable names to short display names (optional)
 #' @return ggplot object or NULL if variable not in results
 #' @details 
 #'   - Numeric: scatter plot with linear trend and Spearman rho annotation
 #'   - Categorical: boxplot with significance brackets for p < 0.05 comparisons
-plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name) {
+plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name, get_short_name = NULL) {
     if (!(get_pretty_name(var) %in% univ_results$variable)) {
         return(NULL) # Skip if variable not in univ_results
     }
@@ -90,6 +102,30 @@ plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name) {
     y <- df[[response_var]][!is.na(df[[var]])]
     df <- df %>% filter(!is.na(.data[[var]]))
     pretty_var <- get_pretty_name(var)
+
+    # Determine plot title: prefer short name if available and not empty
+    plot_title <- pretty_var
+    short_name <- NA
+    
+    if (!is.null(get_short_name)) {
+        short_name <- get_short_name(var)
+    }
+    
+    # Fallback: if short name lookup failed by variable key (e.g. due to dots vs spaces),
+    # try looking up using the pretty_name which we already resolved successfully
+    if ((length(short_name) == 0 || is.na(short_name) || short_name == "") && 
+        exists("variable_glossary") && "pretty_name" %in% names(variable_glossary)) {
+        idx <- match(pretty_var, variable_glossary$pretty_name)
+        if (!is.na(idx)) {
+            val <- variable_glossary$pretty_name_short[idx]
+            if (!is.na(val) && val != "") short_name <- val
+        }
+    }
+
+    if (length(short_name) > 0 && !is.na(short_name) && short_name != "") {
+        plot_title <- short_name
+    }
+
     # Get p-value(s) for this variable from univ_results
     pvals <- univ_results %>% filter(variable == get_pretty_name(var))
     if (is.numeric(v)) {
@@ -100,7 +136,7 @@ plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name) {
         p <- ggplot(df, aes(x = .data[[var]], y = .data[[response_var]])) +
             geom_point(alpha = POINT_ALPHA, color = POINT_COLOR, size = POINT_SIZE) +
             geom_smooth(method = "lm", color = LINE_COLOR, size = LINE_SIZE, se = FALSE, linetype = "dashed") +
-            labs(x = NULL, y = NULL, title = pretty_var) +
+            labs(x = NULL, y = NULL, title = plot_title) +
             annotate("label",
                 x = Inf, y = Inf,
                 label = paste0(val_label),
@@ -139,7 +175,7 @@ plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name) {
         p <- ggplot(df, aes(x = v_fac, y = .data[[response_var]])) +
             geom_boxplot(fill = BOX_FILL, color = BOX_COLOR, alpha = BOX_ALPHA, outlier.shape = NA) +
             geom_jitter(width = JITTER_WIDTH, alpha = JITTER_ALPHA, color = POINT_COLOR, size = JITTER_SIZE) +
-            labs(x = NULL, y = NULL, title = pretty_var) +
+            labs(x = NULL, y = NULL, title = plot_title) +
             theme_bw(14) +
             theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
             coord_cartesian(ylim = YLIM_DISCREPANCY)
@@ -191,18 +227,26 @@ for (response_var in response_vars) {
     # Generate plots for all variables except the outcome itself
     all_vs_discrepancy_plots <- lapply(
         setdiff(names(data_df_pre_scaling_NAd_sampletypes), response_var),
-        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
+        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name, get_short_name)
     )
     all_vs_discrepancy_plots <- Filter(Negate(is.null), all_vs_discrepancy_plots)
 
-    # Combine into a grid (patchwork)
+    # Combine into a grid (patchwork) and save in chunks of 10
     ncol_grid <- GRID_NCOL_ALL
-    combined_vs_discrepancy_plot <- wrap_plots(all_vs_discrepancy_plots, ncol = ncol_grid)
+    plots_per_file <- 12
+    plot_chunks <- split(all_vs_discrepancy_plots, ceiling(seq_along(all_vs_discrepancy_plots) / plots_per_file))
 
-    # Show or save
-    ggsave(file.path(project_dir, "output/univar", paste0("all_vs_", response_var, ".pdf")), combined_vs_discrepancy_plot, width = PLOT_WIDTH_ALL, height = PLOT_HEIGHT_ALL, dpi = PLOT_DPI)
+    for (i in seq_along(plot_chunks)) {
+        chunk_plots <- plot_chunks[[i]]
+        combined_vs_discrepancy_plot <- wrap_plots(chunk_plots, ncol = ncol_grid)
+        
+        # Calculate height dynamically based on number of rows (approx 5 inches per row)
+        n_rows <- ceiling(length(chunk_plots) / ncol_grid)
+        chunk_height <- n_rows * 4
 
-
+        ggsave(file.path(project_dir, "output/univar", paste0("all_vs_", response_var, "_part", i, ".pdf")), 
+               combined_vs_discrepancy_plot, width = 12, height = chunk_height, dpi = PLOT_DPI)
+    }
 
     # Manually selected plots --------------------------------------------------
     # Rationale: Key variables identified by clinical experts (Mariam)
@@ -218,7 +262,7 @@ for (response_var in response_vars) {
 
     manual_discrepancy_plots_list <- lapply(
         manual_vars_to_show,
-        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
+        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name, get_short_name)
     )
     manual_discrepancy_plots_list <- Filter(Negate(is.null), manual_discrepancy_plots_list)
     n_plots <- length(manual_discrepancy_plots_list)
@@ -249,7 +293,7 @@ for (response_var in response_vars) {
 
     ai_vars_plots_list <- lapply(
         ai_vars_to_show,
-        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
+        function(var) plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name, get_short_name)
     )
     ai_vars_plots_list <- Filter(Negate(is.null), ai_vars_plots_list)
     n_plots <- length(ai_vars_plots_list)
@@ -282,7 +326,7 @@ for (response_var in response_vars) {
         function(var) {
             pretty_var <- get_pretty_name(var)
             if (pretty_var %in% sig_vars && is_path_var(pretty_var)) {
-                plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
+                plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name, get_short_name)
             } else {
                 NULL
             }
@@ -301,7 +345,7 @@ for (response_var in response_vars) {
             pretty_var <- get_pretty_name(var)
             print(pretty_var)
             if (pretty_var %in% sig_vars && is_ai_var(pretty_var)) {
-                plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name)
+                plot_vs_discrepancy(data_df_pre_scaling_NAd_sampletypes, var, univ_results, get_pretty_name, get_short_name)
             } else {
                 NULL
             }
