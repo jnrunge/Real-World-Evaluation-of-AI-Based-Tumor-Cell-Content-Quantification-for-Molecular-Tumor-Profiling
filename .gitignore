@@ -11,3 +11,5 @@ output_backup_*
 Rplots.pdf
 00_historic.zip
 input/raw.zip
+input/raw
+_si_tmp

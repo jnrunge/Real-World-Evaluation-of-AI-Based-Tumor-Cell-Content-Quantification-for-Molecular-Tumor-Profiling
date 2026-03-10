@@ -41,31 +41,36 @@ PLOT_DPI <- 300
 YLIM_DISCREPANCY <- c(-100, 100)
 
 # Annotation positioning (relative to plot area)
-ANNOT_HJUST <- 1.1
-ANNOT_VJUST <- 1.5
+ANNOT_HJUST <- 1.5
+ANNOT_VJUST <-2
 ANNOT_SIZE <- 5
 
 # Point styling
 POINT_ALPHA <- 0.7
 POINT_COLOR <- "#1041FF"
-POINT_SIZE <- 2
+POINT_SIZE <- 0.5
+
+# Correlation label styling
+CORR_LABEL_TEXT_SIZE <- 2
+CORR_LABEL_BORDER_SIZE <- 0.25
 
 # Line styling
 LINE_COLOR <- "#a84632"
-LINE_SIZE <- 1.2
+LINE_SIZE <- 0.5
 
 # Boxplot styling
 BOX_FILL <- "#72c2ff"
 BOX_COLOR <- "#013d6b"
 BOX_ALPHA <- 0.8
+BOX_LINE_SIZE <- 0.3
 JITTER_WIDTH <- 0.2
 JITTER_ALPHA <- 0.5
-JITTER_SIZE <- 1.5
+JITTER_SIZE <- 0.5
 
 # Significance annotation
-SIGNIF_STEP_INCREASE <- 0.06
+SIGNIF_STEP_INCREASE <- 0.08
 SIGNIF_VJUST <- 0.7
-SIGNIF_TEXTSIZE <- 5
+SIGNIF_TEXTSIZE <- 3
 
 # Load dependencies ------------------------------------------------------------
 source(file.path(project_dir, "00-universal-dependencies.R"))
@@ -102,6 +107,7 @@ plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name, get_shor
     y <- df[[response_var]][!is.na(df[[var]])]
     df <- df %>% filter(!is.na(.data[[var]]))
     pretty_var <- get_pretty_name(var)
+    title_text_size <- 6
 
     # Determine plot title: prefer short name if available and not empty
     plot_title <- pretty_var
@@ -140,10 +146,12 @@ plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name, get_shor
             annotate("label",
                 x = Inf, y = Inf,
                 label = paste0(val_label),
-                hjust = ANNOT_HJUST, vjust = ANNOT_VJUST, size = ANNOT_SIZE, color = "black",
-                fill = "white", label.size = 0.7
+                hjust = ANNOT_HJUST, vjust = ANNOT_VJUST,
+                size = CORR_LABEL_TEXT_SIZE, color = "black",
+                fill = "white", label.size = CORR_LABEL_BORDER_SIZE
             ) +
-            theme_bw(14) +
+            theme_bw(8) +
+            theme(plot.title = element_text(size = title_text_size)) +
             coord_cartesian(ylim = YLIM_DISCREPANCY) +
             scale_x_continuous(labels = scales::comma)
     } else if (is.factor(v) || is.character(v) || is.ordered(v)) {
@@ -173,24 +181,34 @@ plot_vs_discrepancy <- function(df, var, univ_results, get_pretty_name, get_shor
             signif_df <- NULL
         }
         p <- ggplot(df, aes(x = v_fac, y = .data[[response_var]])) +
-            geom_boxplot(fill = BOX_FILL, color = BOX_COLOR, alpha = BOX_ALPHA, outlier.shape = NA) +
+            geom_boxplot(
+                fill = BOX_FILL,
+                color = BOX_COLOR,
+                alpha = BOX_ALPHA,
+                outlier.shape = NA,
+                size = BOX_LINE_SIZE
+            ) +
             geom_jitter(width = JITTER_WIDTH, alpha = JITTER_ALPHA, color = POINT_COLOR, size = JITTER_SIZE) +
             labs(x = NULL, y = NULL, title = plot_title) +
-            theme_bw(14) +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+            theme_bw(8) +
+            theme(
+                axis.text.x = element_text(angle = 45, hjust = 1),
+                plot.title = element_text(size = title_text_size)
+            ) +
             coord_cartesian(ylim = YLIM_DISCREPANCY)
         # Add significance lines and asterisks if any
         if (!is.null(signif_df) && nrow(signif_df) > 0) {
             p <- p +
                 geom_signif(
-                    comparisons = signif_df %>%
-                        select(group1, group2) %>%
-                        pmap(c),
-                    test = "wilcox.test",
-                    step_increase = SIGNIF_STEP_INCREASE,
-                    vjust = SIGNIF_VJUST,
-                    textsize = SIGNIF_TEXTSIZE,
-                    map_signif_level = TRUE
+                  comparisons = signif_df %>%
+                    select(group1, group2) %>%
+                    pmap(c),
+                  test = "wilcox.test",
+                  step_increase = SIGNIF_STEP_INCREASE,
+                  vjust = SIGNIF_VJUST,
+                  textsize = SIGNIF_TEXTSIZE,
+                  map_signif_level = TRUE,
+                  size = 0.3
                 )
         }
     } else {
@@ -233,7 +251,7 @@ for (response_var in response_vars) {
 
     # Combine into a grid (patchwork) and save in chunks of 10
     ncol_grid <- GRID_NCOL_ALL
-    plots_per_file <- 12
+    plots_per_file <- 9
     plot_chunks <- split(all_vs_discrepancy_plots, ceiling(seq_along(all_vs_discrepancy_plots) / plots_per_file))
 
     for (i in seq_along(plot_chunks)) {
@@ -245,7 +263,7 @@ for (response_var in response_vars) {
         chunk_height <- n_rows * 4
 
         ggsave(file.path(project_dir, "output/univar", paste0("all_vs_", response_var, "_part", i, ".pdf")), 
-               combined_vs_discrepancy_plot, width = 12, height = chunk_height, dpi = PLOT_DPI)
+               combined_vs_discrepancy_plot, width = 12, height = chunk_height, units="cm", dpi = PLOT_DPI)
     }
 
     # Manually selected plots --------------------------------------------------
