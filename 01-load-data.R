@@ -11,8 +11,7 @@
 #   - Generates diagnostic plots (distributions, outliers)
 # 
 # Inputs:
-#   - input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx (sheets 1-2)
-#   - input/raw/merged_data.csv (rawer data for AI artifact measures)
+#   - input/Dataset_anonymous.xlsx (sheets 1-2)
 # 
 # Outputs:
 #   - output/processed_data/data_df.rds: Scaled, cleaned dataset
@@ -36,6 +35,8 @@ OUTLIER_IQR_MULTIPLIER <- 1
 # Minimum unique values for outlier detection (excludes sparse variables)
 MIN_UNIQUE_FOR_OUTLIER_DETECTION <- 10
 
+DATA_FILE <- "input/Dataset_anonymous.xlsx"
+
 # Check if cached output files exist -------------------------------------------
 output_files_exist <- all(file.exists(
   file.path(project_dir, "output/processed_data/data_df_pre_scaling.rds"),
@@ -48,7 +49,7 @@ output_files_exist <- all(file.exists(
 
 # Load variable metadata -------------------------------------------------------
 var_desc <- readxl::read_excel(
-  file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), 
+  file.path(project_dir, DATA_FILE), 
   sheet = 2
 )
 
@@ -113,12 +114,11 @@ if (output_files_exist) {
 
   # Load raw data --------------------------------------------------------------
   data_df <- read_excel(
-    file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), 
+    file.path(project_dir, DATA_FILE), 
     sheet = 1
   )
   
-  # Load legacy data for artifact measures
-  old_data <- read_csv2(file.path(project_dir, "input/raw/merged_data.csv"))
+
 
   # Compute derived variables --------------------------------------------------
   
@@ -132,67 +132,12 @@ if (output_files_exist) {
   data_df$TCC_Patho_minus_TCC_AI <- data_df$TCC_Patho - data_df$TCC_AI
   data_df$TCC_FMI_minus_TCC_AI <- data_df$TCC_FMI - data_df$TCC_AI
 
-  # Add artifact fraction measure from AI artifact detection
-  old_data$AI_artefact_fraction_measure <- (
-    1 - (old_data$`Artifact Detect v3.0.0 - Supporting Result - Area of Evaluable Tissue - mm^2` / 
-         old_data$`Artifact Detect v3.0.0 - Supporting Result - Area of Total Tissue - mm^2`)
-  )
-  data_df <- left_join(
-    data_df, 
-    old_data %>% select(pseudonym, AI_artefact_fraction_measure), 
-    by = c("Pseudonym" = "pseudonym")
-  )
-
-  # Fix fragmented cancer content ratio variable
-  # Rationale: Original variable has "fragmented" entries; recalculate from components
-  old_data$`Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed` <- 
-    old_data$`Cancer content N specimens_Resection/Biopsy_numeric` / 
-    old_data$`N Different tissue pieces per slide_Resection/Biopsy_numeric`
-  old_data$`Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed`[
-    is.na(old_data$`Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed`)
-  ] <- 0
   
-  data_df <- left_join(
-    data_df, 
-    old_data %>% select(pseudonym, `Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed`), 
-    by = c("Pseudonym" = "pseudonym")
-  )
 
-  # Verify data integrity against legacy dataset ------------------------------
-  # Compare columns between data_df and old_data to identify matching ones
-  joined_data <- full_join(data_df, old_data, by = c("Pseudonym" = "pseudonym"))
-
-  common_cols <- map_dfr(names(data_df), function(col1) {
-    if (col1 == "Pseudonym") return(NULL)
-
-    map_dfr(names(old_data), function(col2) {
-      if (col2 == "pseudonym") return(NULL)
-
-      # Get values from joined data (already aligned by Pseudonym)
-      vec1 <- joined_data[[if (paste0(col1, ".x") %in% names(joined_data)) paste0(col1, ".x") else col1]]
-      vec2 <- joined_data[[if (paste0(col2, ".y") %in% names(joined_data)) paste0(col2, ".y") else col2]]
-
-      # Remove NAs from both
-      valid_idx <- !is.na(vec1) & !is.na(vec2)
-      vec1 <- vec1[valid_idx]
-      vec2 <- vec2[valid_idx]
-
-      if (length(vec1) > 0 && identical(vec1, vec2)) {
-        tibble(data_df_col = col1, old_data_col = col2)
-      }
-    })
-  })
-
-  if (nrow(common_cols) > 0) {
-    message("Matching columns found between datasets:")
-    print(common_cols)
-  } else {
-    message("No matching columns found between datasets")
-  }
 
   # Extract independent variables from metadata -------------------------------
   list_of_all_indepedent_variables <- read_excel(
-    file.path(project_dir, "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"), 
+    file.path(project_dir, "input/Dataset_anonymous.xlsx"), 
     sheet = 2
   ) %>% select(2)
   

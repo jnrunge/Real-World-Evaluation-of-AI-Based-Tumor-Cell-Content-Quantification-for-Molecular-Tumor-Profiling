@@ -1,11 +1,9 @@
-params.input_xlsx = "input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx"
+params.input_xlsx = "input/Dataset_anonymous.xlsx"
 params.input_pretty_names = "input/variable_pretty_names.csv"
-params.input_merged_data = "input/raw/merged_data.csv"
 
 workflow {
   input_xlsx_ch = Channel.fromPath(params.input_xlsx)
   input_pretty_names_ch = Channel.fromPath(params.input_pretty_names)
-  input_merged_data_ch = Channel.fromPath(params.input_merged_data)
   rscript1_ch = Channel.fromPath("00-universal-dependencies.R")
   rscript2_ch = Channel.fromPath("01-load-data.R")
   rscript3_ch = Channel.fromPath("02-univariate-analyses.R")
@@ -22,20 +20,19 @@ workflow {
   renv_lock_ch = Channel.fromPath("renv.lock")
   rprofile_ch = Channel.fromPath(".Rprofile")
 
-  data_outputs = load_data(input_xlsx_ch, input_pretty_names_ch, input_merged_data_ch, rscript1_ch, rscript2_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
+  data_outputs = load_data(input_xlsx_ch, input_pretty_names_ch, rscript1_ch, rscript2_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
   univariate_outputs = univariate_analysis(input_xlsx_ch, input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript3_ch, rscript4_ch, rscript5_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
   bootstrapped_outputs = bootstrapped_models(input_xlsx_ch, input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript6_ch, function1_ch, function2_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
   best_models_output = best_models(input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript7_ch, rscript7a_ch, function3_ch, function1_ch, input_xlsx_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
-  clustering_outputs = clustering(input_xlsx_ch, input_pretty_names_ch, input_merged_data_ch, best_models_output, rscript1_ch, rscript2_ch, rscript8_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
+  clustering_outputs = clustering(input_xlsx_ch, input_pretty_names_ch, best_models_output, rscript1_ch, rscript2_ch, rscript8_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
 }
 
 process load_data {
     publishDir "${projectDir}", mode: 'copy', pattern: 'output/**'
 
   input:
-  path input_xlsx_ch, stageAs: 'input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx'
+  path input_xlsx_ch, stageAs: 'input/Dataset_anonymous.xlsx'
   path input_pretty_names_ch, stageAs: 'input/variable_pretty_names.csv'
-  path input_merged_data_ch, stageAs: 'input/raw/merged_data.csv'
   path rscript1_ch
   path rscript2_ch
   path renv_dir_ch, stageAs: 'renv'
@@ -63,7 +60,7 @@ process univariate_analysis {
     publishDir "${projectDir}", mode: 'copy', pattern: 'output/**'
 
   input:
-  path input_xlsx_ch, stageAs: 'input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx'
+  path input_xlsx_ch, stageAs: 'input/Dataset_anonymous.xlsx'
   path input_pretty_names_ch, stageAs: 'input/variable_pretty_names.csv'
   path 'output/processed_data/data_df_pre_scaling.rds'
   path 'output/processed_data/data_df.rds'
@@ -96,7 +93,7 @@ process bootstrapped_models{
   publishDir "${projectDir}", mode: 'copy', pattern: 'output/**'
 maxForks 1
     input:
-  path input_xlsx_ch, stageAs: 'input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx'
+  path input_xlsx_ch, stageAs: 'input/Dataset_anonymous.xlsx'
   path input_pretty_names_ch, stageAs: 'input/variable_pretty_names.csv'
   path 'output/processed_data/data_df_pre_scaling.rds'
   path 'output/processed_data/data_df.rds'
@@ -146,7 +143,7 @@ process best_models{
   path rscript7a_ch
   path function3_ch, stageAs: 'functions/best_models.R'
   path function1_ch, stageAs: 'functions/manual-stepwise.R'
-  path input_xlsx_ch, stageAs: 'input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx'
+  path input_xlsx_ch, stageAs: 'input/Dataset_anonymous.xlsx'
   path renv_dir_ch, stageAs: 'renv'
   path renv_lock_ch, stageAs: 'renv.lock'
   path rprofile_ch, stageAs: '.Rprofile'
@@ -167,9 +164,8 @@ process clustering{
   maxForks 1
   
   input:
-  path input_xlsx_ch, stageAs: 'input/PathAI_Dataset_300_cases_mg_27.10.2025.xlsx'
+  path input_xlsx_ch, stageAs: 'input/Dataset_anonymous.xlsx'
   path input_pretty_names_ch, stageAs: 'input/variable_pretty_names.csv'
-  path input_merged_data_ch, stageAs: 'input/raw/merged_data.csv'
   path 'output/processed_data/best_models_classic_no_forced_interactions.rds'
   path 'output/model_plots/*'
   path rscript1_ch
