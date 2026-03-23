@@ -137,7 +137,7 @@ make_pairplot <- function(df, base_sz, title = NULL) {
     upper = list(continuous = add_corr_box_panel),
     diag = list(continuous = wrap("barDiag", fill = "#72c2ff", color = "#013d6b", bins = HIST_BINS)),
     lower = list(continuous = add_identity_line_colored_corner),
-    columnLabels = c("AI", "Patho", "FMI")
+    columnLabels = c("DQ", "VQ", "MQ")
   ) +
     theme_bw(base_sz) +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +

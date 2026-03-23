@@ -46,6 +46,12 @@ response_vars <- variables %>%
     filter(type == "response") %>%
     pull(variable)
 
+response_var_labels <- c(
+    TCC_Patho_minus_TCC_AI  = "TCC VQ vs TCC DQ",
+    TCC_FMI_minus_TCC_AI    = "TCC MQ vs TCC DQ",
+    TCC_Patho_minus_TCC_FMI = "TCC VQ vs TCC MQ"
+)
+
 # Apply variable exclusions ----------------------------------------------------
 # Rationale: Remove variables excluded based on univariate analyses
 variables <- variables %>%
@@ -220,7 +226,7 @@ if (file.exists(rds_file)) {
             scale_color_manual(values = c("FALSE" = "white", "TRUE" = "red"), guide = "none") +
             scale_linewidth_manual(values = c("FALSE" = 0.5, "TRUE" = 2), guide = "none") +
             labs(
-                title = paste0("Predictor Presence Across Model Fits:\n", response_var),
+                title = paste0("Predictor Presence Across Model Fits:\n", response_var_labels[response_var]),
                 subtitle = paste0(
                     "Red border indicates chosen fit: ", chosen_fit,
                     "\nIdentical fits have same color\n",
@@ -283,7 +289,8 @@ for (response_var in names(classic_no_forced_interactions)) {
         geom_point(size = 0.5) +
         facet_wrap(~ fit_index, scales = "free_y") +
         labs(
-            title = paste("AIC progression across stepwise selection:", response_var),
+            title = paste("AIC progression across stepwise selection:",
+                          response_var_labels[response_var]),
             x = "Step",
             y = "AIC"
         ) +

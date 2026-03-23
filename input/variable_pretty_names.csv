@@ -156,9 +156,9 @@ AI_%_of_immune_cells_in_tumor,(AI) Immune Cells in Tumor [%],(AI) Immune Cells i
 AI_%_of_non_immune_cells_in_tumor,(AI) Non-Immune Cells in Tumor [%],(AI) Non-Immune in Tum. [%]
 AI_density_of_cells_in_normal_tissue_mm2,(AI) Density of Cells in Normal Tissue,(AI) Dens. Cells Norm. Tiss.
 Path_Margin Ink_Resection,(Path) Margin Ink (Resection),(Path) Margin Ink (Resec)
-TCC_FMI_minus_TCC_AI,TCC "FMI" - "AI" Discrepancy,(TCC) FMI - AI Disc.
-TCC_Patho_minus_TCC_FMI,TCC "Patho" - "FMI" Discrepancy,(TCC) Path - FMI Disc.
-TCC_Patho_minus_TCC_AI,TCC "Patho" - "AI" Discrepancy,(TCC) Path - AI Disc.
+TCC_FMI_minus_TCC_AI,TCC MQ - DQ Discrepancy,(TCC) MQ - DQ Disc.
+TCC_Patho_minus_TCC_FMI,TCC VQ - MQ Discrepancy,(TCC) VQ - MQ Disc.
+TCC_Patho_minus_TCC_AI,TCC VQ - DQ Discrepancy,(TCC) VQ - DQ Disc.
 AI_total_stroma_area_.,(AI) Stroma Area [%],
 AI_total_necrosis_area_.,(AI) Necrosis Area [%],
 AI_cancer_area_._per_tumor,(AI) Cancer Area per Tumor [%] ,(AI) Ca. Area per Tum. [%]
@@ -167,7 +167,7 @@ Path_Acute.infflammation,(Path) Acute Inflammation,
 Path_Cautery.Crush.artifact_.average,(Path) Cautery/Crush Artifact [numeric],(Path) Cautery/Crush Art. [#]
 AI_scanning_artifacts_area_.,(AI) Scanning Artifacts [%],(AI) Scan. Art. [%]
 Path_Tetriary.Lymphoid.Structures,(Path) Tertiary Lymphoid Structures,(Path) Tert. Lymph. Struct.
-TCC Path-AI Discrepancy,TCC "Path - AI" Discrepancy,(TCC) Path - AI Disc.
+TCC Path-AI Discrepancy,TCC VQ - DQ Discrepancy,(TCC) VQ - DQ Disc.
 AI_total_tumor_area_.,(AI) Tumor Area [%],
 AI_._of_fibroblasts_in_tumor,(AI) Fibroblasts in Tumor [%],(AI) Fibro. in Tum. [%]
 AI_._of_immune_cells_in_tumor,(AI) Immune Cells in Tumor [%],(AI) Immune Cells in Tum. [%]

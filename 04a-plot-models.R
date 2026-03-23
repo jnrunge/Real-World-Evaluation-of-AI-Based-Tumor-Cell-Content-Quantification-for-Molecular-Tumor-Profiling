@@ -825,7 +825,7 @@ pm <- plot_model_coefficients(
     classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$model,
     classic_no_forced_interactions$TCC_Patho_minus_TCC_AI$importance_summary,
     get_pretty_name_v2,
-    title = "TCC Discrepancy Pathologist vs AI"
+    title = "TCC Discrepancy VQ vs DQ"
 )
 save_plot_both(pm, "TCC_discrepancy_model_path_vs_ai.pdf", width = COEFF_PLOT_WIDTH, height = COEFF_PLOT_HEIGHT, width_poster=10, height_poster=12)
 
@@ -834,7 +834,7 @@ pm_fmi_vs_ai <- plot_model_coefficients(
     classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$model,
     classic_no_forced_interactions$TCC_FMI_minus_TCC_AI$importance_summary,
     get_pretty_name_v2,
-    title = "TCC Discrepancy FMI vs AI"
+    title = "TCC Discrepancy MQ vs DQ"
 )
 save_plot_both(pm_fmi_vs_ai, "TCC_discrepancy_model_fmi_vs_ai.pdf", width = 12, height = 16, width_poster=10, height_poster=21)
 
@@ -843,7 +843,7 @@ pm_path_vs_fmi <- plot_model_coefficients(
     classic_no_forced_interactions$TCC_Patho_minus_TCC_FMI$model,
     classic_no_forced_interactions$TCC_Patho_minus_TCC_FMI$importance_summary,
     get_pretty_name_v2,
-    title = "TCC Discrepancy Pathologist vs FMI"
+    title = "TCC Discrepancy VQ vs MQ"
 )
 save_plot_both(pm_path_vs_fmi, "TCC_discrepancy_model_path_vs_fmi.pdf", width = COEFF_PLOT_WIDTH, height = COEFF_PLOT_HEIGHT, width_poster=10, height_poster=12)
 
