@@ -13,6 +13,7 @@ workflow {
   rscript7_ch = Channel.fromPath("04-best-models.R")
   rscript7a_ch = Channel.fromPath("04a-plot-models.R")
   rscript8_ch = Channel.fromPath("05-clustering.R")
+  rscript9_ch = Channel.fromPath("06-additiona-analyses.R")
   function1_ch = Channel.fromPath("functions/manual-stepwise.R")
   function2_ch = Channel.fromPath("functions/bootstrapping_models.R")
   function3_ch = Channel.fromPath("functions/best_models.R")
@@ -25,6 +26,7 @@ workflow {
   bootstrapped_outputs = bootstrapped_models(input_xlsx_ch, input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript6_ch, function1_ch, function2_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
   best_models_output = best_models(input_pretty_names_ch, data_outputs, rscript1_ch, rscript2_ch, rscript7_ch, rscript7a_ch, function3_ch, function1_ch, input_xlsx_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
   clustering_outputs = clustering(input_xlsx_ch, input_pretty_names_ch, best_models_output, rscript1_ch, rscript2_ch, rscript8_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
+  additional_analyses(input_xlsx_ch, input_pretty_names_ch, data_outputs, clustering_outputs, rscript1_ch, rscript2_ch, rscript9_ch, renv_dir_ch, renv_lock_ch, rprofile_ch)
 }
 
 process load_data {
@@ -162,7 +164,7 @@ process clustering{
     publishDir "${projectDir}", mode: 'copy', pattern: 'output/**'
 
   maxForks 1
-  
+
   input:
   path input_xlsx_ch, stageAs: 'input/Dataset_anonymous.xlsx'
   path input_pretty_names_ch, stageAs: 'input/variable_pretty_names.csv'
@@ -181,6 +183,39 @@ process clustering{
   script:
   """
   Rscript -e 'source("${rscript1_ch}"); source("${rscript2_ch}"); source("${rscript8_ch}")'
+  """
+}
+
+process additional_analyses{
+    publishDir "${projectDir}", mode: 'copy', pattern: 'output/**'
+
+  maxForks 1
+
+  input:
+  path input_xlsx_ch, stageAs: 'input/Dataset_anonymous.xlsx'
+  path input_pretty_names_ch, stageAs: 'input/variable_pretty_names.csv'
+  path 'output/processed_data/data_df_pre_scaling.rds'
+  path 'output/processed_data/data_df.rds'
+  path 'output/processed_data/data_df_renamed.rds'
+  path 'output/processed_data/variables.rds'
+  path 'output/processed_data/data_df_complete.rds'
+  path 'output/processed_data/data_df_pre_scaling_NAd_sampletypes.rds'
+  path 'output/outliers/*'
+  path 'output/distributions/*'
+  path 'output/clustering/*'
+  path rscript1_ch
+  path rscript2_ch
+  path rscript9_ch
+  path renv_dir_ch, stageAs: 'renv'
+  path renv_lock_ch, stageAs: 'renv.lock'
+  path rprofile_ch, stageAs: '.Rprofile'
+
+  output:
+  path 'output/additional_analyses/*'
+
+  script:
+  """
+  Rscript -e 'source("${rscript1_ch}"); source("${rscript2_ch}"); source("${rscript9_ch}")'
   """
 }
 
