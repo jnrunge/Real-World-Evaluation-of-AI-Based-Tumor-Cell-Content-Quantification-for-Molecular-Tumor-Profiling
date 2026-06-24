@@ -68,7 +68,10 @@ for (bin_size in c(5, 10, 20)) {
       ) %>%
       count(x_bin, y_bin) %>%
       mutate(
-        label = paste0(n, " / ", sprintf("%.1f%%", n / sum(n) * 100)),
+        label = if (bin_size == 5)
+          sprintf("%.1f%%", n / sum(n) * 100)
+        else
+          paste0(n, " / ", sprintf("%.1f%%", n / sum(n) * 100)),
         x_lower = bin_lower(x_bin),
         y_lower = bin_lower(y_bin),
         threshold_cross =
