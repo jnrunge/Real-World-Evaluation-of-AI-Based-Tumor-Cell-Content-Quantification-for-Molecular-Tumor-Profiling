@@ -50,6 +50,8 @@ prettify_bin <- function(lev) {
 threshold_cutoff <- 20   # clinical TCC threshold
 discrepancy_abs  <- 20   # flag if bin lower bounds differ by >= this many units
 
+base_size <- 14   # consistent with other scripts' plot base font size
+
 pairs <- combn(tcc_vars, 2, simplify = FALSE)
 
 # bin sizes chosen so the 20-unit threshold always falls on a bin boundary
@@ -86,15 +88,13 @@ for (bin_size in c(5, 10, 20)) {
 
     ggplot(df, aes(x = x_bin, y = y_bin)) +
       geom_tile(
-        aes(fill = n, color = border_color),
-        width = 0.85, height = 0.85, linewidth = 1.0
+        aes(color = border_color),
+        fill = "white", width = 0.85, height = 0.85, linewidth = 1.0
       ) +
-      geom_text(aes(label = label), size = 3.5, color = "white") +
-      scale_fill_gradient(low = "#666666", high = "#000000") +
+      geom_text(aes(label = label), size = 4.5, color = "black") +
       scale_color_identity() +
       scale_x_discrete(labels = prettify_bin, drop = FALSE) +
       scale_y_discrete(labels = prettify_bin, drop = FALSE) +
-      guides(fill = "none") +
       labs(
         x = tcc_labels[x_var],
         y = tcc_labels[y_var],
@@ -104,11 +104,13 @@ for (bin_size in c(5, 10, 20)) {
           " units  |  green = concordant"
         )
       ) +
-      theme_bw(11) +
+      theme_bw(base_size) +
       theme(
         axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid = element_blank(),
-        plot.caption = element_text(size = 8, hjust = 0)
+        panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white"),
+        plot.caption = element_text(size = base_size - 3, hjust = 0)
       )
   })
 
@@ -121,6 +123,16 @@ for (bin_size in c(5, 10, 20)) {
   dev.off()
 
   message("Saved: ", pdf_path)
+
+  for (i in seq_along(plots)) {
+    pair_tag <- paste(pairs[[i]], collapse = "_vs_")
+    png_path <- file.path(
+      output_dir,
+      paste0("tcc_pairwise_heatmaps_bin", bin_size, "_", pair_tag, ".png")
+    )
+    ggsave(png_path, plots[[i]], width = 9, height = 8, dpi = 300)
+    message("Saved: ", png_path)
+  }
 }
 
 # Clinical binning: 0–9, 10–19, 20–50, >50
@@ -165,15 +177,13 @@ plots_clinical <- lapply(pairs, function(pair) {
 
   ggplot(df, aes(x = x_bin, y = y_bin)) +
     geom_tile(
-      aes(fill = n, color = border_color),
-      width = 0.85, height = 0.85, linewidth = 1.0
+      aes(color = border_color),
+      fill = "white", width = 0.85, height = 0.85, linewidth = 1.0
     ) +
-    geom_text(aes(label = label), size = 3.5, color = "white") +
-    scale_fill_gradient(low = "#666666", high = "#000000") +
+    geom_text(aes(label = label), size = 4.5, color = "black") +
     scale_color_identity() +
     scale_x_discrete(drop = FALSE) +
     scale_y_discrete(drop = FALSE) +
-    guides(fill = "none") +
     labs(
       x = tcc_labels[x_var],
       y = tcc_labels[y_var],
@@ -183,11 +193,13 @@ plots_clinical <- lapply(pairs, function(pair) {
         " units  |  green = concordant"
       )
     ) +
-    theme_bw(11) +
+    theme_bw(base_size) +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1),
       panel.grid = element_blank(),
-      plot.caption = element_text(size = 8, hjust = 0)
+      panel.background = element_rect(fill = "white"),
+      plot.background = element_rect(fill = "white"),
+      plot.caption = element_text(size = base_size - 3, hjust = 0)
     )
 })
 
@@ -196,3 +208,13 @@ pdf(pdf_path, width = 9, height = 8)
 for (p in plots_clinical) print(p)
 dev.off()
 message("Saved: ", pdf_path)
+
+for (i in seq_along(plots_clinical)) {
+  pair_tag <- paste(pairs[[i]], collapse = "_vs_")
+  png_path <- file.path(
+    output_dir,
+    paste0("tcc_pairwise_heatmaps_clinical_", pair_tag, ".png")
+  )
+  ggsave(png_path, plots_clinical[[i]], width = 9, height = 8, dpi = 300)
+  message("Saved: ", png_path)
+}
