@@ -3,8 +3,8 @@ This project allows for reproduction of results in the "Real-world performance o
 
 To just reproduce the output, run
 
-````bash
+```bash
 nextflow run main.nf -resume
-````
+```
 
 Or have a look at the main.nf to understand the order and logic of the pipeline.
