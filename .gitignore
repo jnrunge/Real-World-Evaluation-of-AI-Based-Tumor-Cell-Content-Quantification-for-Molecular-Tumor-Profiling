@@ -15,3 +15,4 @@ _si_tmp
 comparison_images
 comparison_report.html
 compare_outputs.py
+output*/

@@ -8,3 +8,8 @@ nextflow run main.nf -resume
 ```
 
 Or have a look at the main.nf to understand the order and logic of the pipeline.
+
+# Important caveats regarding the dataset
+
+- Note that the variable names as seen in the figures are the result of a renaming during production based on the mapping in `input/variable_pretty_names.csv`. Hence, `input/Dataset_anonymous.xlsx` will feature slightly different names.
+- As described in the paper, not all 0s in the dataset are treated as such. Some variables cannot be interpreted in certain groups of samples, ie biopsy, resection, or cytology samples. Hence, those 0s need to be ignored for the respective group(s).
