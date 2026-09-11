@@ -84,6 +84,7 @@ process univariate_analysis {
   output:
   path 'output/univar/*'
   path 'output/tobi_plots/*'
+  path 'output/tables/*'
 
   script:
   """
