@@ -1,5 +1,6 @@
 This project allows for reproduction of results in the "Real-world performance of AI-based tumor cell content quantification for molecular tumor profiling in diagnostic cancer samples" paper.
 
+Use the renv.lock to rebuild the R environment.
 
 To just reproduce the output, run
 
