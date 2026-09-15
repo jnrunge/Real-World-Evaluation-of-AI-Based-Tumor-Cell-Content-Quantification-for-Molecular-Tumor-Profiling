@@ -19,7 +19,7 @@
 
 # Configuration ----------------------------------------------------------------
 # Plot font sizes
-base_size <- 14
+base_size <- 17
 base_size_poster <- 22
 
 # Plot dimensions (base values; adjusted per plot type)
@@ -27,9 +27,40 @@ DEFAULT_WIDTH <- 3
 DEFAULT_HEIGHT <- 3
 COEFF_PLOT_WIDTH <- 10
 COEFF_PLOT_HEIGHT <- 13
-INTERACTION_PLOT_WIDTH <- 11
-INTERACTION_PLOT_HEIGHT <- 8
+INTERACTION_PLOT_WIDTH <- 6
+INTERACTION_PLOT_HEIGHT <- 3
 PLOT_DPI <- 300
+
+# Return no more than four readable x-axis breaks for individual effects.
+at_most_four_breaks <- function(limits) {
+    limits <- range(limits, na.rm = TRUE)
+    breaks <- scales::breaks_pretty(n = 4)(limits)
+    breaks <- breaks[breaks >= limits[1] & breaks <= limits[2]]
+    if (length(breaks) >= 2 && length(breaks) <= 4) return(breaks)
+
+    # Preserve both endpoints when the default pretty breaks are too numerous.
+    span <- diff(limits)
+    if (!is.finite(span) || span <= 0) return(limits)
+
+    # Use rounded endpoints when they are close enough to the observed range.
+    raw_step <- span / 2
+    magnitude <- 10 ^ floor(log10(raw_step))
+    nice_steps <- c(1, 2, 2.5, 5, 10) * magnitude
+    step <- nice_steps[which.min(abs(nice_steps - raw_step))]
+    lower <- limits[1]
+    upper <- limits[2]
+    if (lower >= 0 && lower <= 0.1 * step) lower <- 0
+    rounded_upper_candidates <- c(floor(upper / step), ceiling(upper / step)) * step
+    rounded_upper <- rounded_upper_candidates[which.min(abs(rounded_upper_candidates - upper))]
+    if (rounded_upper > lower && abs(upper - rounded_upper) <= 0.3 * step) upper <- rounded_upper
+    midpoint <- if (lower == 0 && upper > 0 && upper %% 2 == 0) {
+        upper / 2
+    } else {
+        round(mean(c(lower, upper)) / step) * step
+    }
+    if (midpoint <= lower || midpoint >= upper) midpoint <- mean(c(lower, upper))
+    c(lower, midpoint, upper)
+}
 
 # Y-axis limits for discrepancy predictions
 DISCREPANCY_YLIM <- c(-100, 100)
@@ -93,6 +124,7 @@ plot_main_effect <- function(
     }
     apply_scaler <- function(raw_vals, scaler) scaler$a + scaler$b * raw_vals
     raw_log <- function(x) ifelse(x > 1, log(x) + 1, x)
+    get_plot_label <- function(var) { label <- get_pretty_name_v2(var); if (identical(var, "Path_Cancer_content_in_tissue_specimens_per_slide_Resection.Biopsy_Ratio_fixed")) label <- "(Path) Canc. Spec.\nper\nSlide (Ratio)"; label }
 
     model_vars <- names(model$model)
 
@@ -108,6 +140,7 @@ plot_main_effect <- function(
 
         levels_base <- levels(model$model[[var_base]])
         # Prepare combinations across var_base levels and (optional) var_base_2 values
+        if (identical(var_base, "Sample.type") && identical(var_base_2, "Path_Cancer_content_in_tissue_specimens_per_slide_Resection.Biopsy_Ratio_fixed")) levels_base <- setdiff(levels_base, "Cytology")
         if (is.null(var_base_2)) {
             combos <- tibble::tibble(level = levels_base)
             var2_is_factor <- FALSE
@@ -244,6 +277,20 @@ plot_main_effect <- function(
                     if (!is.null(var_base_2)) paste("by", get_pretty_name_v2(var_base_2)) else ""
                 )
             ) +
+            ggplot2::scale_x_discrete(
+                labels = function(x) {
+                    short_labels <- c(
+                        "Absent" = "Abs.",
+                        "Minimal" = "Min.",
+                        "Moderate" = "Mod.",
+                        "Extensive" = "Ext.",
+                        "Cytology" = "Cyt."
+                    )
+                    matched <- x %in% names(short_labels)
+                    x[matched] <- unname(short_labels[x[matched]])
+                    x
+                }
+            ) +
             ggplot2::theme_bw(base_size) +
             ggplot2::coord_cartesian(ylim = y_limits)
 
@@ -254,7 +301,7 @@ plot_main_effect <- function(
             p <- p +
                 ggplot2::scale_fill_manual(
                     values = pal_vals,
-                    name = get_pretty_name_v2(var_base_2),
+                    name = get_plot_label(var_base_2),
                     labels = if (var2_is_factor) var_base_2_values else scales::comma(var_base_2_values)
                 )
         }
@@ -270,6 +317,7 @@ plot_main_effect <- function(
 
     # Get the range of the base variable (raw if requested)
     var_range <- if (unscale_center) range(raw_data[[var_base]], na.rm = TRUE) else range(model_data[[var_base]], na.rm = TRUE)
+    individual_x_breaks <- at_most_four_breaks(var_range)
     n_points <- 1000
 
     # If no grouping variable
@@ -337,6 +385,12 @@ plot_main_effect <- function(
             labs(
                 x = {
                     lbl <- get_pretty_name_v2(var_base)
+                    if (identical(lbl, "(Path) Cancer Content in Tissue Specimens per Slide (Resection/Biopsy) Ratio")) {
+                        lbl <- "(Path) Canc. Spec. per Sli. Ratio"
+                    }
+                    if (identical(lbl, "(Path) Evaluable Cancer Area Marked as Artifact by AI")) {
+                        lbl <- "(Path) Evaluable Canc. Marked as Artifact"
+                    }
                     spaces <- gregexpr(" ", lbl, fixed = TRUE)[[1]]
                     if (spaces[1] != -1) {
                     mid <- nchar(lbl) / 2
@@ -348,7 +402,7 @@ plot_main_effect <- function(
                 y = ylab,
                 title = paste(title_prefix, get_pretty_name_v2(var_base))
             ) +
-            scale_x_continuous(labels = scales::comma) +
+            scale_x_continuous(labels = scales::comma, breaks = individual_x_breaks, expand = c(0.02, 0.02)) +
             theme_bw(base_size) +
             coord_cartesian(ylim = y_limits)
         return(p)
@@ -506,17 +560,23 @@ plot_main_effect <- function(
         geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.15, color = NA) +
         scale_color_manual(
             values = palette,
-            name = get_pretty_name_v2(var_base_2),
+            name = get_plot_label(var_base_2),
             labels = scales::comma(var_base_2_values)
         ) +
         scale_fill_manual(
             values = palette,
-            name = get_pretty_name_v2(var_base_2),
+            name = get_plot_label(var_base_2),
             labels = scales::comma(var_base_2_values)
         ) +
         scale_x_continuous(labels = scales::comma) +
         labs(
-            x = get_pretty_name_v2(var_base),
+            x = {
+                lbl <- get_pretty_name_v2(var_base)
+                if (grepl("^Path_Cancer_content_in_tissue_specimens_per_slide_Resection\\.Biopsy_Ratio", var_base)) {
+                    lbl <- "(Path) Canc. Spec. / Sli. Ratio"
+                }
+                lbl
+            },
             y = ylab,
             title = paste(title_prefix, get_pretty_name_v2(var_base), "by", get_pretty_name_v2(var_base_2))
         ) +
@@ -673,12 +733,20 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
     }
 
 
+    coefficient_axis_label <- function(coef_name) {
+        label <- get_pretty_name_v2(coef_name)
+        if (grepl("Sample Type.*Resection", label) && grepl("Cancer Content in Tissue Specimens per Slide", label)) {
+            label <- "(Path) Resection Sample : (Path) Canc. Spec. / Sli. Ratio"
+        }
+        label
+    }
+
     pm <- plot_model(
         model,
         show.intercept = TRUE, order.terms = c(1, (ordered_indices + 1)),
         axis.labels = c("(Intercept)" = "Intercept", vapply(
             coef_names,
-            get_pretty_name_v2,
+            coefficient_axis_label,
             character(1)
         ))
     ) + theme_bw(base_size) + ylab("Coefficient Estimate") + ggtitle(title) +
@@ -760,7 +828,7 @@ plot_model_coefficients <- function(model, importance_summary, get_pretty_name_v
 #' @param width_poster Numeric, poster width (defaults to width)
 #' @param height_poster Numeric, poster height (defaults to height)
 #' @param dpi Numeric, resolution
-save_plot_both <- function(plot_obj, filename, width, height, width_poster = NULL, height_poster = NULL, dpi = 300) {
+save_plot_both <- function(plot_obj, filename, width, height, width_poster = NULL, height_poster = NULL, dpi = 300, legend_position = "bottom") {
     # Use regular dimensions for poster if not specified
     if (is.null(width_poster)) width_poster <- width
     if (is.null(height_poster)) height_poster <- height
@@ -769,7 +837,7 @@ save_plot_both <- function(plot_obj, filename, width, height, width_poster = NUL
     ggsave(paste0(output_dir, filename), plot_obj, width = width, height = height, dpi = dpi)
     
     # Poster version - increase base_size
-    plot_poster <- plot_obj + theme_bw(base_size_poster)+ theme(legend.position = "bottom")
+    plot_poster <- plot_obj + theme_bw(base_size_poster) + theme(legend.position = legend_position)
     ggsave(paste0(output_dir_poster, filename), plot_poster, width = width_poster, height = height_poster, dpi = dpi)
 }
 
@@ -836,7 +904,7 @@ pm_fmi_vs_ai <- plot_model_coefficients(
     get_pretty_name_v2,
     title = "TCC Discrepancy MQ vs DQ"
 )
-save_plot_both(pm_fmi_vs_ai, "TCC_discrepancy_model_fmi_vs_ai.pdf", width = 12, height = 16, width_poster=10, height_poster=21)
+save_plot_both(pm_fmi_vs_ai, "TCC_discrepancy_model_fmi_vs_ai.pdf", width = COEFF_PLOT_WIDTH, height = 15, width_poster=10, height_poster=21)
 
 # Path vs FMI model
 pm_path_vs_fmi <- plot_model_coefficients(
@@ -913,7 +981,7 @@ for (model_name in names(classic_no_forced_interactions)) {
                     get_pretty_name_v2 = get_pretty_name_v2,
                     unscale_center = TRUE
                 ) + 
-                    theme(legend.position = "bottom") + 
+                    theme(legend.position = "right") +
                     ggtitle(NULL) +
                     ylab(NULL)
                 
@@ -924,7 +992,7 @@ for (model_name in names(classic_no_forced_interactions)) {
                     make.names(var_base_2), ".pdf"
                 )
                 
-                save_plot_both(p, safe_filename, width = INTERACTION_PLOT_WIDTH, height = INTERACTION_PLOT_HEIGHT, width_poster=12)
+                save_plot_both(p, safe_filename, width = INTERACTION_PLOT_WIDTH, height = INTERACTION_PLOT_HEIGHT, width_poster=12, height_poster=3, legend_position="right")
                 message(paste("    Saved:", safe_filename))
             }, error = function(e) {
                 message(paste("    Error plotting interaction", var_base, ":", var_base_2, "-", e$message))

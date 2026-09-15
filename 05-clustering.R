@@ -25,7 +25,7 @@
 
 # Configuration ----------------------------------------------------------------
 # Plot font sizes
-base_size <- 14
+base_size <- 17
 base_size_poster <- 22
 
 # UMAP parameters (default values; grid search explores ranges)
@@ -193,7 +193,7 @@ plot_dbscan_clusters <- function(umap_df, db_clusters, output_dir, response_var,
     
     print(p)
     ggsave(file.path(output_dir, paste0(response_var, "_dbscan_umap_clusters.pdf")), 
-           width = 8, height = 6, dpi = 300)
+           width = 10, height = 6, dpi = 300)
     
     # Create poster version
     poster_dir <- file.path(output_dir, "poster")
@@ -303,7 +303,7 @@ plot_cluster_boxplots <- function(df_all, cluster_counts, response_var, output_d
         scale_fill_manual(values = color_values, breaks = legend_breaks, drop = FALSE)
     
     ggsave(file.path(output_dir, paste0(response_var, "_boxplot_discrepancy_by_cluster.pdf")), 
-           plot = p_summary, width = 8, height = 6, dpi = 300)
+           plot = p_summary, width = 10, height = 6, dpi = 300)
     
     # Create poster version
     poster_dir <- file.path(output_dir, "poster")
@@ -840,7 +840,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
             na.value = "grey90"
         ) +
         scale_alpha(range = c(0.8, 1), guide = "none") +
-        labs(title = "Cluster-wise summary of model variables",
+        labs(title = NULL,
              x = "Cluster", y = "Variable") +
         scale_y_discrete(labels = function(x) {
             sapply(x, function(lbl) {
@@ -871,7 +871,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         ylab(NULL)
     
     ggsave(file.path(output_dir, paste0(response_var, "_cluster_variable_heatmap.pdf")), 
-           width = 16, height = 7)
+           width = 20.8, height = 7)
     
     # Create poster version
     poster_dir <- file.path(output_dir, "poster")
@@ -960,7 +960,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
             na.value = "grey90"
         ) +
         scale_alpha(range = c(0.8, 1), guide = "none") +
-        labs(title = "Cluster-wise summary of model variables",
+        labs(title = NULL,
              x = "Cluster", y = "Variable") +
         scale_y_discrete(labels = function(x) {
             sapply(x, function(lbl) {
@@ -1416,6 +1416,8 @@ for (response_var in response_vars) {
         n_neighbors_values = N_NEIGHBORS_VALUES,
         min_dist_values = MIN_DIST_VALUES,
         seed = 123,
+        base_size = base_size,
+        base_size_poster = base_size_poster,
         reverse_colors = TRUE  # Blue=high, red=low for heatmaps
     )
     
