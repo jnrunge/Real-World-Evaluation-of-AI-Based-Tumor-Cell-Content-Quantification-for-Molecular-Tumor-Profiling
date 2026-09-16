@@ -122,7 +122,7 @@ AI_scanning_artifacts_area_%,(AI) Scanning Artifacts [%],(AI) Scan. Art. [%]
 Path_Specimen Qualityl,(Path) Specimen Quality,
 Path_Microtomy_ Artifacts,(Path) Microtomy Artifacts,
 Path_Thick_Specimen,(Path) Thick Specimen,
-Path_Cautery/Crush artifact_ average,(Path) Cautery/Crush Artifact [numeric],(Path) Cautery/Crush Art. [#]
+Path_Cautery/Crush artifact_ average,(Path) Cautery/Crush Artifact [%],(Path) Cautery/Crush Art. [%]
 Path_Cautery/Crush artifact average_yes_no,(Path) Cautery/Crush Artifact [yes/no],(Path) Cautery/Crush Art. [Y/N]
 Path_Cancer_content_in_tissue_specimens_per_slide_Resection/Biopsy_Ratio_fixed,(Path) Cancer Content in Tissue Specimens per Slide (Resection/Biopsy) Ratio,(Path) Ca. Content Ratio
 Path_Cancer_content_in_tissue_specimens_per_slide_Resection.Biopsy_Ratio_fixed,(Path) Cancer Content in Tissue Specimens per Slide (Resection/Biopsy) Ratio,(Path) Ca. Content Ratio
@@ -164,7 +164,7 @@ AI_total_necrosis_area_.,(AI) Necrosis Area [%],
 AI_cancer_area_._per_tumor,(AI) Cancer Area per Tumor [%] ,(AI) Ca. Area per Tum. [%]
 AI_total_cancer_area_.,(AI) Cancer Area [%],
 Path_Acute.infflammation,(Path) Acute Inflammation,
-Path_Cautery.Crush.artifact_.average,(Path) Cautery/Crush Artifact [numeric],(Path) Cautery/Crush Art. [#]
+Path_Cautery.Crush.artifact_.average,(Path) Cautery/Crush Artifact [%],(Path) Cautery/Crush Art. [%]
 AI_scanning_artifacts_area_.,(AI) Scanning Artifacts [%],(AI) Scan. Art. [%]
 Path_Tetriary.Lymphoid.Structures,(Path) Tertiary Lymphoid Structures,(Path) Tert. Lymph. Struct.
 TCC Path-AI Discrepancy,TCC VQ - DQ Discrepancy,(TCC) VQ - DQ Disc.
