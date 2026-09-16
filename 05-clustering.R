@@ -845,18 +845,28 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         scale_y_discrete(labels = function(x) {
             sapply(x, function(lbl) {
                 pretty <- get_pretty_name(lbl)
-                chars <- unlist(strsplit(pretty, ""))
-                out <- ""
-                count <- 0
-                for (i in seq_along(chars)) {
-                    out <- paste0(out, chars[i])
-                    count <- count + 1
-                    if (count >= 6 && chars[i] == " ") {
-                        out <- paste0(out, "\n")
-                        count <- 0
+                if (grepl("(Path)", pretty, fixed = TRUE) &&
+                    grepl("Cancer Content", pretty, fixed = TRUE) &&
+                    grepl("in Tissue", pretty, fixed = TRUE) &&
+                    grepl("Specimens", pretty, fixed = TRUE) &&
+                    grepl("per Slide", pretty, fixed = TRUE) &&
+                    grepl("Resection/Biopsy", pretty, fixed = TRUE)) {
+                    pretty <- "(Path)\nCancer Content\nin Tissue\nSpecimens\nper Slide\n(Resection/Biopsy)"
+                } else {
+                    chars <- unlist(strsplit(pretty, ""))
+                    out <- ""
+                    count <- 0
+                    for (i in seq_along(chars)) {
+                        out <- paste0(out, chars[i])
+                        count <- count + 1
+                        if (count >= 6 && chars[i] == " ") {
+                            out <- paste0(out, "\n")
+                            count <- 0
+                        }
                     }
+                    pretty <- out
                 }
-                out
+                pretty
             })
         }) +
         theme_minimal(base_size = base_size) +
@@ -871,7 +881,7 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         ylab(NULL)
     
     ggsave(file.path(output_dir, paste0(response_var, "_cluster_variable_heatmap.pdf")), 
-           width = 20.8, height = 7)
+           width = 20.2, height = 7)
     
     # Create poster version
     poster_dir <- file.path(output_dir, "poster")
@@ -965,18 +975,28 @@ create_cluster_heatmap <- function(data_df_renamed, db_clusters, df_all,
         scale_y_discrete(labels = function(x) {
             sapply(x, function(lbl) {
                 pretty <- get_pretty_name(lbl)
-                chars <- unlist(strsplit(pretty, ""))
-                out <- ""
-                count <- 0
-                for (i in seq_along(chars)) {
-                    out <- paste0(out, chars[i])
-                    count <- count + 1
-                    if (count >= 6 && chars[i] == " ") {
-                        out <- paste0(out, "\n")
-                        count <- 0
+                if (grepl("(Path)", pretty, fixed = TRUE) &&
+                    grepl("Cancer Content", pretty, fixed = TRUE) &&
+                    grepl("in Tissue", pretty, fixed = TRUE) &&
+                    grepl("Specimens", pretty, fixed = TRUE) &&
+                    grepl("per Slide", pretty, fixed = TRUE) &&
+                    grepl("Resection/Biopsy", pretty, fixed = TRUE)) {
+                    pretty <- "(Path)\nCancer Content\nin Tissue\nSpecimens\nper Slide\n(Resection/Biopsy)"
+                } else {
+                    chars <- unlist(strsplit(pretty, ""))
+                    out <- ""
+                    count <- 0
+                    for (i in seq_along(chars)) {
+                        out <- paste0(out, chars[i])
+                        count <- count + 1
+                        if (count >= 6 && chars[i] == " ") {
+                            out <- paste0(out, "\n")
+                            count <- 0
+                        }
                     }
+                    pretty <- out
                 }
-                out
+                pretty
             })
         }) +
         theme_minimal(base_size = base_size_poster) +
