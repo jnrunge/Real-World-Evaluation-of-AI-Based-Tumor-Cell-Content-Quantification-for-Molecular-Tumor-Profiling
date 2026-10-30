@@ -313,6 +313,9 @@ for (var in all_vars) {
         # Numeric: Single row with formatted stats
         stats_by_cancer <- map_chr(cancer_types, function(ct) {
             subset_vals <- vals[cancers == ct]
+            if (var == "AI_artefact_fraction_measure") {
+                subset_vals <- subset_vals * 100
+            }
             format_numeric_stats(subset_vals)
         })
         
